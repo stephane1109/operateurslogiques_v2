@@ -72,6 +72,18 @@ def render_corpus_iramuteq_tab(
 ) -> None:
     """Affiche les analyses statistiques pour les corpus IRaMuTeQ."""
 
+    def _filtrer_freq_connecteurs(df_freq: pd.DataFrame) -> pd.DataFrame:
+        """Ne conserve que les fréquences des connecteurs logiques."""
+
+        if df_freq is None or df_freq.empty or "type" not in df_freq:
+            return pd.DataFrame(columns=["type", "categorie", "frequence"])
+
+        freq_connecteurs = df_freq[df_freq["type"] == "Connecteur logique"]
+        if freq_connecteurs.empty:
+            return pd.DataFrame(columns=["type", "categorie", "frequence"])
+
+        return freq_connecteurs.reset_index(drop=True)
+
     st.subheader("Corpus IRaMuTeQ : sélection des modalités")
 
     if df_modalites.empty:
@@ -148,6 +160,7 @@ def render_corpus_iramuteq_tab(
             dico_tensions={},
         )
         freq_modalite = frequences_marqueurs_par_modalite(detections_modalite)
+        freq_modalite = _filtrer_freq_connecteurs(freq_modalite)
 
         with st.expander(f"Analyse : {modalite_courante}", expanded=False):
             st.markdown("**Texte de la modalité**")
@@ -234,6 +247,7 @@ def render_corpus_iramuteq_tab(
         dico_tensions={},
     )
     freq_selection = frequences_marqueurs_par_modalite(detections_modalites)
+    freq_selection = _filtrer_freq_connecteurs(freq_selection)
     st.markdown("**Fréquences globales des marqueurs (sélection)**")
     if freq_selection.empty:
         st.info("Aucun marqueur logique détecté dans la sélection.")
