@@ -160,7 +160,14 @@ def render_corpus_iramuteq_tab(
             )
 
             st.markdown("**Détections et texte annoté**")
-            with st.expander("Détections brutes", expanded=False):
+
+            afficher_detections = st.checkbox(
+                "Afficher les détections brutes",
+                value=False,
+                key=f"show_detections_{modalite_courante}",
+                help="Affiche la structure JSON des détections effectuées pour cette modalité.",
+            )
+            if afficher_detections:
                 st.json(detections_modalite)
 
             texte_annote = html_annote(
@@ -177,51 +184,50 @@ def render_corpus_iramuteq_tab(
                 couleurs_tensions=COULEURS_TENSIONS,
                 legende=True,
             )
-            with st.expander("Paramètres de rendu", expanded=False):
-                st.caption(
-                    "Les options ci-dessous influent sur le rendu HTML (badges)."
-                )
-                show_codes = st.checkbox(
-                    "Afficher les codes des connecteurs (cause, conséquence, obligation…)",
-                    True,
-                    key=f"show_codes_{modalite_courante}",
-                )
-                show_marqueurs_categories = st.checkbox(
-                    "Afficher les catégories des marqueurs",
-                    True,
-                    key=f"show_mark_{modalite_courante}",
-                )
-                show_memoires_categories = st.checkbox(
-                    "Afficher les catégories des mémoires",
-                    True,
-                    key=f"show_memo_{modalite_courante}",
-                )
-                show_tensions_categories = st.checkbox(
-                    "Afficher les catégories des tensions",
-                    True,
-                    key=f"show_tensions_{modalite_courante}",
-                )
 
-            with st.expander("Texte annoté (HTML)", expanded=True):
-                texte_annote = html_annote(
-                    texte_modalite,
-                    detections_modalite,
-                    html_conn=True,
-                    html_marqueurs=True,
-                    html_memoire=True,
-                    html_cause_consq=use_regex_cc,
-                    html_tension=True,
-                    css_badges=css_badges,
-                    couleurs_conn=COULEURS_BADGES,
-                    couleurs_marqueurs=COULEURS_MARQUEURS,
-                    couleurs_tensions=COULEURS_TENSIONS,
-                    legende=False,
-                    show_codes=show_codes,
-                    show_marqueurs=show_marqueurs_categories,
-                    show_memoires=show_memoires_categories,
-                    show_tensions=show_tensions_categories,
-                )
-                st.markdown(texte_annote, unsafe_allow_html=True)
+            st.markdown("**Paramètres de rendu**")
+            st.caption("Les options ci-dessous influent sur le rendu HTML (badges).")
+            show_codes = st.checkbox(
+                "Afficher les codes des connecteurs (cause, conséquence, obligation…)",
+                True,
+                key=f"show_codes_{modalite_courante}",
+            )
+            show_marqueurs_categories = st.checkbox(
+                "Afficher les catégories des marqueurs",
+                True,
+                key=f"show_mark_{modalite_courante}",
+            )
+            show_memoires_categories = st.checkbox(
+                "Afficher les catégories des mémoires",
+                True,
+                key=f"show_memo_{modalite_courante}",
+            )
+            show_tensions_categories = st.checkbox(
+                "Afficher les catégories des tensions",
+                True,
+                key=f"show_tensions_{modalite_courante}",
+            )
+
+            st.markdown("**Texte annoté (HTML)**")
+            texte_annote = html_annote(
+                texte_modalite,
+                detections_modalite,
+                html_conn=True,
+                html_marqueurs=True,
+                html_memoire=True,
+                html_cause_consq=use_regex_cc,
+                html_tension=True,
+                css_badges=css_badges,
+                couleurs_conn=COULEURS_BADGES,
+                couleurs_marqueurs=COULEURS_MARQUEURS,
+                couleurs_tensions=COULEURS_TENSIONS,
+                legende=False,
+                show_codes=show_codes,
+                show_marqueurs=show_marqueurs_categories,
+                show_memoires=show_memoires_categories,
+                show_tensions=show_tensions_categories,
+            )
+            st.markdown(texte_annote, unsafe_allow_html=True)
 
             st.markdown("**Fréquences des marqueurs logiques**")
             if freq_modalite.empty:
