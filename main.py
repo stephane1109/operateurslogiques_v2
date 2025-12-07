@@ -60,6 +60,7 @@ from iramuteq.corpusiramuteq import (
     frequences_marqueurs_par_modalite,
     segmenter_corpus_par_modalite,
 )
+from iramuteq.analyseiramuteq import render_corpus_iramuteq_tab
 from text_utils import normaliser_espace, segmenter_en_phrases
 from annotations import render_annotation_tab
 from analaysesentiments import render_zero_shot_tab
@@ -174,24 +175,42 @@ def construire_df_phrases_storytelling(
     )
 
 
-def preparer_detections(texte_source: str, use_regex_cc: bool) -> Dict[str, pd.DataFrame]:
+def preparer_detections(
+    texte_source: str,
+    use_regex_cc: bool,
+    *,
+    dico_connecteurs: Dict[str, str] | None = None,
+    dico_marqueurs: Dict[str, str] | None = None,
+    dico_memoires: Dict[str, str] | None = None,
+    dico_consq: Dict[str, str] | None = None,
+    dico_causes: Dict[str, str] | None = None,
+    dico_tensions: Dict[str, str] | None = None,
+) -> Dict[str, pd.DataFrame]:
     """Retourne l'ensemble des DataFrames de détection pour un texte donné."""
+
+    dico_connecteurs = dico_connecteurs or DICO_CONNECTEURS
+    dico_marqueurs = dico_marqueurs or DICO_MARQUEURS
+    dico_memoires = dico_memoires or DICO_MEMOIRES
+    dico_consq = dico_consq or DICO_CONSQS
+    dico_causes = dico_causes or DICO_CAUSES
+    dico_tensions = dico_tensions or DICO_TENSIONS
+
     if texte_source.strip():
-        df_conn = detecter_connecteurs(texte_source, DICO_CONNECTEURS)
-        df_marq_brut = detecter_marqueurs(texte_source, DICO_MARQUEURS)
+        df_conn = detecter_connecteurs(texte_source, dico_connecteurs)
+        df_marq_brut = detecter_marqueurs(texte_source, dico_marqueurs)
         df_marq = ajuster_negations_global(texte_source, df_marq_brut)
-        df_memoires = detecter_memoires(texte_source, DICO_MEMOIRES)
+        df_memoires = detecter_memoires(texte_source, dico_memoires)
         df_consq_lex = (
-            detecter_consequences_lex(texte_source, DICO_CONSQS)
+            detecter_consequences_lex(texte_source, dico_consq)
             if use_regex_cc
             else pd.DataFrame()
         )
         df_causes_lex = (
-            detecter_causes_lex(texte_source, DICO_CAUSES)
+            detecter_causes_lex(texte_source, dico_causes)
             if use_regex_cc
             else pd.DataFrame()
         )
-        df_tensions = detecter_tensions_semantiques(texte_source, DICO_TENSIONS)
+        df_tensions = detecter_tensions_semantiques(texte_source, dico_tensions)
     else:
         df_conn = pd.DataFrame()
         df_marq = pd.DataFrame()
@@ -1465,176 +1484,17 @@ with tab_import_iramuteq:
         )
 
 with tab_corpus_iramuteq:
-    st.subheader("Corpus IRaMuTeQ : sélection des modalités")
-    df_modalites = st.session_state.get("iramuteq_df", pd.DataFrame())
-
-    if not df_modalites.empty:
-        df_modalites = df_modalites.copy()
-        df_modalites["variable"] = (
-            df_modalites["variable"].fillna("").replace("", "Corpus")
-        )
-
-    if df_modalites.empty:
-        st.info("Aucun corpus IRaMuTeQ n'a été importé pour le moment.")
-    else:
-        variables_disponibles = sorted(
-            [
-                v
-                for v in df_modalites["variable"].dropna().unique().tolist()
-                if str(v).strip()
-            ]
-        )
-        if not variables_disponibles:
-            variables_disponibles = ["Corpus"]
-
-        variable_selectionnee = st.selectbox(
-            "Choisir une variable",
-            options=variables_disponibles,
-            index=0,
-        )
-
-        modalites_disponibles = sorted(
-            [
-                m
-                for m in df_modalites[df_modalites["variable"] == variable_selectionnee][
-                    "modalite"
-                ]
-                .dropna()
-                .unique()
-                .tolist()
-                if str(m).strip()
-            ]
-        )
-
-        selection_modalites = st.multiselect(
-            "Choisir une ou plusieurs modalités à analyser",
-            options=modalites_disponibles,
-            default=modalites_disponibles,
-        )
-
-        if not selection_modalites:
-            selection_modalites = modalites_disponibles
-
-        st.markdown(
-            f"**Variable sélectionnée :** {variable_selectionnee}  ",
-        )
-        st.markdown(
-            "**Modalités sélectionnées :** "
-            + (", ".join(selection_modalites) if selection_modalites else "Aucune"),
-        )
-
-        df_selection = filtrer_modalites(
-            df_modalites, selection_modalites, variable_selectionnee
-        )
-        if df_selection.empty:
-            st.warning("Aucune modalité sélectionnée ou correspondance vide.")
-        else:
-            st.markdown("**Aperçu des textes sélectionnés**")
-            st.dataframe(df_selection, use_container_width=True)
-
-            st.markdown("### Analyses par modalité sélectionnée")
-            for _, ligne in df_selection.iterrows():
-                modalite_courante = str(ligne.get("modalite", "")).strip()
-                texte_modalite = str(ligne.get("texte", ""))
-                detections_modalite = preparer_detections(texte_modalite, use_regex_cc)
-                freq_modalite = frequences_marqueurs_par_modalite(detections_modalite)
-
-                with st.expander(
-                    f"{modalite_courante or 'Modalité sans nom'} — {len(texte_modalite)} caractères",
-                    expanded=len(df_selection) <= 2,
-                ):
-                    st.markdown(css_badges(), unsafe_allow_html=True)
-                    if not texte_modalite.strip():
-                        st.info("Texte vide pour cette modalité.")
-                    else:
-                        show_codes = {
-                            str(v).upper(): True for v in DICO_CONNECTEURS.values()
-                        }
-                        show_marqueurs_categories = (
-                            {str(v).upper(): True for v in DICO_MARQUEURS.values()}
-                            if DICO_MARQUEURS
-                            else None
-                        )
-                        show_memoires_categories = (
-                            {str(v).upper(): True for v in DICO_MEMOIRES.values()}
-                            if DICO_MEMOIRES
-                            else None
-                        )
-                        show_tensions_categories = (
-                            {str(v).upper(): True for v in DICO_TENSIONS.values()}
-                            if DICO_TENSIONS
-                            else None
-                        )
-
-                        texte_annote = html_annote(
-                            texte_modalite,
-                            DICO_CONNECTEURS,
-                            DICO_MARQUEURS,
-                            DICO_MEMOIRES,
-                            DICO_CONSQS,
-                            DICO_CAUSES,
-                            DICO_TENSIONS,
-                            show_codes,
-                            True,
-                            True,
-                            bool(DICO_TENSIONS),
-                            show_marqueurs_categories=show_marqueurs_categories,
-                            show_memoires_categories=show_memoires_categories,
-                            show_tensions_categories=show_tensions_categories,
-                        )
-                        st.markdown(texte_annote, unsafe_allow_html=True)
-
-                    st.markdown("**Fréquences des marqueurs logiques**")
-                    if freq_modalite.empty:
-                        st.info("Aucun marqueur logique détecté pour cette modalité.")
-                    else:
-                        st.dataframe(freq_modalite, use_container_width=True)
-                        st.bar_chart(
-                            freq_modalite,
-                            x="categorie",
-                            y="frequence",
-                            color="type",
-                        )
-
-            if set(selection_modalites) == set(modalites_disponibles):
-                texte_modalites = fusionner_textes_par_variable(
-                    df_modalites, variable_selectionnee
-                )
-            else:
-                texte_modalites = fusionner_textes_modalites(df_selection)
-            st.markdown(
-                "### Texte combiné des modalités sélectionnées"
-            )
-            st.markdown(
-                f"Longueur du texte combiné : {len(texte_modalites)} caractères pour {len(df_selection)} segment(s)"
-            )
-
-            detections_modalites = preparer_detections(texte_modalites, use_regex_cc)
-            freq_selection = frequences_marqueurs_par_modalite(detections_modalites)
-            st.markdown("**Fréquences globales des marqueurs (sélection)**")
-            if freq_selection.empty:
-                st.info("Aucun marqueur logique détecté dans la sélection.")
-            else:
-                st.dataframe(freq_selection, use_container_width=True)
-                st.bar_chart(
-                    freq_selection,
-                    x="categorie",
-                    y="frequence",
-                    color="type",
-                )
-            render_analyses_tab(
-                "Corpus IRaMuTeQ (modalités sélectionnées)",
-                texte_modalites,
-                detections_modalites,
-                use_regex_cc=use_regex_cc,
-                dico_connecteurs=DICO_CONNECTEURS,
-                dico_marqueurs=DICO_MARQUEURS,
-                dico_memoires=DICO_MEMOIRES,
-                dico_consq=DICO_CONSQS,
-                dico_causes=DICO_CAUSES,
-                dico_tensions=DICO_TENSIONS,
-                key_prefix="iramuteq_",
-            )
+    render_corpus_iramuteq_tab(
+        st.session_state.get("iramuteq_df", pd.DataFrame()),
+        DICTIONNAIRES_DIR,
+        use_regex_cc,
+        preparer_detections,
+        dico_marqueurs=DICO_MARQUEURS,
+        dico_memoires=DICO_MEMOIRES,
+        dico_consq=DICO_CONSQS,
+        dico_causes=DICO_CAUSES,
+        dico_tensions=DICO_TENSIONS,
+    )
 
 with tab_stats_norm:
     render_stats_norm_tab(
