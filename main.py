@@ -56,6 +56,7 @@ from streamlit_utils import dataframe_safe
 from iramuteq.corpusiramuteq import (
     filtrer_modalites,
     fusionner_textes_modalites,
+    fusionner_textes_par_variable,
     frequences_marqueurs_par_modalite,
     segmenter_corpus_par_modalite,
 )
@@ -841,7 +842,9 @@ if "dicos_actifs" not in st.session_state:
     st.session_state["dicos_actifs"] = copy.deepcopy(DICOS_REFERENCE)
 
 if "iramuteq_df" not in st.session_state:
-    st.session_state["iramuteq_df"] = pd.DataFrame(columns=["modalite", "texte"])
+    st.session_state["iramuteq_df"] = pd.DataFrame(
+        columns=["variable", "modalite", "texte", "balise"]
+    )
 if "iramuteq_fichier" not in st.session_state:
     st.session_state["iramuteq_fichier"] = ""
 
@@ -1465,19 +1468,64 @@ with tab_corpus_iramuteq:
     st.subheader("Corpus IRaMuTeQ : sélection des modalités")
     df_modalites = st.session_state.get("iramuteq_df", pd.DataFrame())
 
+    if not df_modalites.empty:
+        df_modalites = df_modalites.copy()
+        df_modalites["variable"] = (
+            df_modalites["variable"].fillna("").replace("", "Corpus")
+        )
+
     if df_modalites.empty:
         st.info("Aucun corpus IRaMuTeQ n'a été importé pour le moment.")
     else:
-        modalites_disponibles = sorted(
-            [m for m in df_modalites["modalite"].dropna().unique().tolist() if str(m).strip()]
+        variables_disponibles = sorted(
+            [
+                v
+                for v in df_modalites["variable"].dropna().unique().tolist()
+                if str(v).strip()
+            ]
         )
+        if not variables_disponibles:
+            variables_disponibles = ["Corpus"]
+
+        variable_selectionnee = st.selectbox(
+            "Choisir une variable",
+            options=variables_disponibles,
+            index=0,
+        )
+
+        modalites_disponibles = sorted(
+            [
+                m
+                for m in df_modalites[df_modalites["variable"] == variable_selectionnee][
+                    "modalite"
+                ]
+                .dropna()
+                .unique()
+                .tolist()
+                if str(m).strip()
+            ]
+        )
+
         selection_modalites = st.multiselect(
             "Choisir une ou plusieurs modalités à analyser",
             options=modalites_disponibles,
             default=modalites_disponibles,
         )
 
-        df_selection = filtrer_modalites(df_modalites, selection_modalites)
+        if not selection_modalites:
+            selection_modalites = modalites_disponibles
+
+        st.markdown(
+            f"**Variable sélectionnée :** {variable_selectionnee}  ",
+        )
+        st.markdown(
+            "**Modalités sélectionnées :** "
+            + (", ".join(selection_modalites) if selection_modalites else "Aucune"),
+        )
+
+        df_selection = filtrer_modalites(
+            df_modalites, selection_modalites, variable_selectionnee
+        )
         if df_selection.empty:
             st.warning("Aucune modalité sélectionnée ou correspondance vide.")
         else:
@@ -1541,8 +1589,19 @@ with tab_corpus_iramuteq:
                         st.info("Aucun marqueur logique détecté pour cette modalité.")
                     else:
                         st.dataframe(freq_modalite, use_container_width=True)
+                        st.bar_chart(
+                            freq_modalite,
+                            x="categorie",
+                            y="frequence",
+                            color="type",
+                        )
 
-            texte_modalites = fusionner_textes_modalites(df_selection)
+            if set(selection_modalites) == set(modalites_disponibles):
+                texte_modalites = fusionner_textes_par_variable(
+                    df_modalites, variable_selectionnee
+                )
+            else:
+                texte_modalites = fusionner_textes_modalites(df_selection)
             st.markdown(
                 "### Texte combiné des modalités sélectionnées"
             )
@@ -1551,6 +1610,18 @@ with tab_corpus_iramuteq:
             )
 
             detections_modalites = preparer_detections(texte_modalites, use_regex_cc)
+            freq_selection = frequences_marqueurs_par_modalite(detections_modalites)
+            st.markdown("**Fréquences globales des marqueurs (sélection)**")
+            if freq_selection.empty:
+                st.info("Aucun marqueur logique détecté dans la sélection.")
+            else:
+                st.dataframe(freq_selection, use_container_width=True)
+                st.bar_chart(
+                    freq_selection,
+                    x="categorie",
+                    y="frequence",
+                    color="type",
+                )
             render_analyses_tab(
                 "Corpus IRaMuTeQ (modalités sélectionnées)",
                 texte_modalites,
