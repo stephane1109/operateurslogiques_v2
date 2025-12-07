@@ -31,6 +31,8 @@ from analyses import (
     COULEURS_BADGES,
     COULEURS_MARQUEURS,
     COULEURS_TENSIONS,
+    css_badges,
+    html_annote,
     construire_regex_depuis_liste,
     render_analyses_tab,
     render_detection_section,
@@ -54,6 +56,7 @@ from streamlit_utils import dataframe_safe
 from iramuteq.corpusiramuteq import (
     filtrer_modalites,
     fusionner_textes_modalites,
+    frequences_marqueurs_par_modalite,
     segmenter_corpus_par_modalite,
 )
 from text_utils import normaliser_espace, segmenter_en_phrases
@@ -1481,7 +1484,68 @@ with tab_corpus_iramuteq:
             st.markdown("**Aperçu des textes sélectionnés**")
             st.dataframe(df_selection, use_container_width=True)
 
+            st.markdown("### Analyses par modalité sélectionnée")
+            for _, ligne in df_selection.iterrows():
+                modalite_courante = str(ligne.get("modalite", "")).strip()
+                texte_modalite = str(ligne.get("texte", ""))
+                detections_modalite = preparer_detections(texte_modalite, use_regex_cc)
+                freq_modalite = frequences_marqueurs_par_modalite(detections_modalite)
+
+                with st.expander(
+                    f"{modalite_courante or 'Modalité sans nom'} — {len(texte_modalite)} caractères",
+                    expanded=len(df_selection) <= 2,
+                ):
+                    st.markdown(css_badges(), unsafe_allow_html=True)
+                    if not texte_modalite.strip():
+                        st.info("Texte vide pour cette modalité.")
+                    else:
+                        show_codes = {
+                            str(v).upper(): True for v in DICO_CONNECTEURS.values()
+                        }
+                        show_marqueurs_categories = (
+                            {str(v).upper(): True for v in DICO_MARQUEURS.values()}
+                            if DICO_MARQUEURS
+                            else None
+                        )
+                        show_memoires_categories = (
+                            {str(v).upper(): True for v in DICO_MEMOIRES.values()}
+                            if DICO_MEMOIRES
+                            else None
+                        )
+                        show_tensions_categories = (
+                            {str(v).upper(): True for v in DICO_TENSIONS.values()}
+                            if DICO_TENSIONS
+                            else None
+                        )
+
+                        texte_annote = html_annote(
+                            texte_modalite,
+                            DICO_CONNECTEURS,
+                            DICO_MARQUEURS,
+                            DICO_MEMOIRES,
+                            DICO_CONSQS,
+                            DICO_CAUSES,
+                            DICO_TENSIONS,
+                            show_codes,
+                            True,
+                            True,
+                            bool(DICO_TENSIONS),
+                            show_marqueurs_categories=show_marqueurs_categories,
+                            show_memoires_categories=show_memoires_categories,
+                            show_tensions_categories=show_tensions_categories,
+                        )
+                        st.markdown(texte_annote, unsafe_allow_html=True)
+
+                    st.markdown("**Fréquences des marqueurs logiques**")
+                    if freq_modalite.empty:
+                        st.info("Aucun marqueur logique détecté pour cette modalité.")
+                    else:
+                        st.dataframe(freq_modalite, use_container_width=True)
+
             texte_modalites = fusionner_textes_modalites(df_selection)
+            st.markdown(
+                "### Texte combiné des modalités sélectionnées"
+            )
             st.markdown(
                 f"Longueur du texte combiné : {len(texte_modalites)} caractères pour {len(df_selection)} segment(s)"
             )

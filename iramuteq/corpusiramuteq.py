@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Iterable, List
+from typing import Dict, Iterable, List
 
 import pandas as pd
 
@@ -57,3 +57,34 @@ def fusionner_textes_modalites(df_modalites: pd.DataFrame) -> str:
         return ""
     textes = [str(val).strip() for val in df_modalites["texte"] if str(val).strip()]
     return "\n\n".join(textes)
+
+
+def frequences_marqueurs_par_modalite(
+    detections: Dict[str, pd.DataFrame]
+) -> pd.DataFrame:
+    """Calcule la fréquence des marqueurs logiques pour une modalité donnée."""
+
+    def _compter(df: pd.DataFrame, colonne: str, type_label: str) -> pd.DataFrame:
+        if df is None or df.empty or colonne not in df:
+            return pd.DataFrame()
+        freq = df[colonne].value_counts().reset_index()
+        freq.columns = ["categorie", "frequence"]
+        freq["type"] = type_label
+        return freq
+
+    tableaux = [
+        _compter(detections.get("df_conn"), "code", "Connecteur logique"),
+        _compter(detections.get("df_marq"), "categorie", "Marqueur normatif"),
+        _compter(detections.get("df_memoires"), "categorie", "Mémoire"),
+        _compter(detections.get("df_consq_lex"), "categorie", "Conséquence"),
+        _compter(detections.get("df_causes_lex"), "categorie", "Cause"),
+        _compter(detections.get("df_tensions"), "tension", "Tension sémantique"),
+    ]
+
+    tableaux = [t for t in tableaux if not t.empty]
+    if not tableaux:
+        return pd.DataFrame(columns=["type", "categorie", "frequence"])
+
+    df_freq = pd.concat(tableaux, ignore_index=True)
+    df_freq = df_freq[["type", "categorie", "frequence"]]
+    return df_freq.sort_values(by=["type", "categorie"]).reset_index(drop=True)
