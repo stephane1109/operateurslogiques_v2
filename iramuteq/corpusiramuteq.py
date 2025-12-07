@@ -33,30 +33,36 @@ def extraire_variable_et_modalite(nom_balise: str) -> Dict[str, str]:
 def segmenter_corpus_par_modalite(texte_corpus: str) -> pd.DataFrame:
     """Segmente un corpus IRaMuTeQ en DataFrame variable / modalité / texte.
 
-    Le format attendu repose sur des lignes de type "**** *variable_modalite" qui
-    marquent le début d'un nouveau segment. Tout le texte qui suit jusqu'à la
-    prochaine balise appartient à cette modalité.
+    Le format attendu repose sur des blocs introduits par une ligne "****" puis
+    des lignes de modalités commençant par "*" (par exemple "*variable_modalite").
+    L'ancien format "**** *variable_modalite" reste pris en charge. Chaque
+    modalité regroupe le texte jusqu'à la prochaine modalité ou balise "****".
     """
 
     if not texte_corpus:
         return pd.DataFrame(columns=["variable", "modalite", "texte", "balise"])
 
-    motif_modalite = re.compile(r"^(\*{4}\s*\*(.+))$", re.MULTILINE)
+    motif_balises = re.compile(r"^(?P<limite>\*{4}\s*$)|^(?P<balise>\*.+)$", re.MULTILINE)
     segments: List[dict] = []
 
-    positions = list(motif_modalite.finditer(texte_corpus))
-    for idx, match in enumerate(positions):
+    balises = list(motif_balises.finditer(texte_corpus))
+    for idx, match in enumerate(balises):
+        balise_modalite = match.group("balise")
+        if not balise_modalite:
+            continue  # Ligne "****" : on avance jusqu'à la prochaine balise utile
+
         debut_contenu = match.end()
-        fin_contenu = positions[idx + 1].start() if idx + 1 < len(positions) else len(texte_corpus)
+        fin_contenu = balises[idx + 1].start() if idx + 1 < len(balises) else len(texte_corpus)
         contenu = texte_corpus[debut_contenu:fin_contenu].strip()
-        infos_balise = extraire_variable_et_modalite(match.group(2))
+
+        infos_balise = extraire_variable_et_modalite(balise_modalite)
         if infos_balise.get("variable") or infos_balise.get("modalite"):
             segments.append(
                 {
                     "variable": infos_balise.get("variable", ""),
                     "modalite": infos_balise.get("modalite", ""),
                     "texte": contenu,
-                    "balise": match.group(1).strip(),
+                    "balise": balise_modalite.strip(),
                 }
             )
 
