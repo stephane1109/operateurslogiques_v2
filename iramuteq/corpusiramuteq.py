@@ -25,7 +25,7 @@ def extraire_variable_et_modalite(nom_balise: str) -> Dict[str, str]:
     if "_" in nom_nettoye:
         variable, modalite = nom_nettoye.split("_", 1)
     else:
-        variable, modalite = nom_nettoye, ""
+        variable, modalite = "", nom_nettoye
 
     return {"variable": variable.strip(), "modalite": modalite.strip()}
 
