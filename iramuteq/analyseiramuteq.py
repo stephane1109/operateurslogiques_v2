@@ -270,6 +270,7 @@ def render_corpus_iramuteq_tab(
             "tensions_semantiques",
             "regex_consequence",
             "regex_cause",
+            "memoires",
         },
         dico_connecteurs=dico_connecteurs_iramuteq,
         dico_marqueurs={},
