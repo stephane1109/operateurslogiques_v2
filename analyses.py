@@ -480,11 +480,16 @@ def render_detection_section(
     else:
         show_tensions = False
 
-    st.markdown("**Marqueurs de causalité**")
-    show_consequences = st.checkbox(
-        "CONSEQUENCE", value=True, key=f"{key_prefix}chk_consequence"
-    )
-    show_causes = st.checkbox("CAUSE", value=True, key=f"{key_prefix}chk_cause")
+    has_causalite = bool(dico_consq or dico_causes)
+    if has_causalite:
+        st.markdown("**Marqueurs de causalité**")
+        show_consequences = st.checkbox(
+            "CONSEQUENCE", value=True, key=f"{key_prefix}chk_consequence"
+        )
+        show_causes = st.checkbox("CAUSE", value=True, key=f"{key_prefix}chk_cause")
+    else:
+        show_consequences = False
+        show_causes = False
 
     st.markdown(css_badges(), unsafe_allow_html=True)
     if not texte_source.strip():
