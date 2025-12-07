@@ -1,0 +1,35 @@
+{
+  "gestion_erreur_try_catch": {
+    "description": "Formules d'autocritique, de reconnaissance de limite ou de mise en sc\u00e8ne de l'excuse/pr\u00e9caution (gestion des erreurs, mea culpa, rectification).",
+    "patterns_regex": [
+      "(?i)\\bje le reconnais( volontiers| devant vous)?\\b",
+      "(?i)\\b(j[' ]avais|j[' ]ai) sans doute insuffisamment\\b",
+      "(?i)\\bje sais,? je n[' ]ai pas\\b",
+      "(?i)\\bje n[' ]ai pas (ob\u00e9i|respect\u00e9|fait|pr\u00e9sent\u00e9) [^\\.]{0,80}\\.",
+      "(?i)\\bje ne vous ai pas (fait|pr\u00e9sent\u00e9) [^\\.]{0,80}\\.",
+      "(?i)\\bil est vrai que [^\\.]{3,120}\\.",
+      "(?i)\\bje comprends que [^\\.]{3,120}\\.",
+      "(?i)\\bsi c[' ]est le cas, je [^\\.]{3,120}\\.",
+      "(?i)\\bje mesure (bien|que) [^\\.]{3,120}\\.",
+      "(?i)\\bje n[' ]endosserai pas [^\\.]{0,80}\\.",
+      "(?i)\\bje ne pr\u00e9tends pas [^\\.]{3,120}\\."
+    ],
+    "mots_cles": [
+      "je le reconnais",
+      "je sais, je n'ai pas",
+      "il est vrai que",
+      "je comprends que",
+      "je n'ai pas",
+      "je ne vous ai pas",
+      "je n'endosserai pas",
+      "je ne pr\u00e9tends pas"
+    ],
+    "exemples_theoriques": [
+      "Je le reconnais devant vous, je n'avais pas suffisamment mesur\u00e9 cet enjeu.",
+      "Je sais, je n'ai pas ob\u00e9i \u00e0 l'exercice de style habituel.",
+      "Il est vrai que certaines d\u00e9cisions ont \u00e9t\u00e9 difficiles \u00e0 comprendre.",
+      "Je comprends que vous puissiez vous interroger sur ces choix.",
+      "Je n'endosserai pas un r\u00e9sultat qui mettrait en danger la cr\u00e9dibilit\u00e9 de notre pays."
+    ]
+  }
+}

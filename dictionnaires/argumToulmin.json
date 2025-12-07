@@ -1,0 +1,34 @@
+{
+  "MARQUEURS_CLAIM": [
+    "il faut", "nous devons", "doit", "doivent", "il est nécessaire",
+    "nous allons", "nous proposons", "nous décidons", "j'annonce",
+    "je décide", "nous ferons", "nous mettrons en œuvre", "notre position est",
+    "nous confirmons", "nous assumons", "nous défendons"
+  ],
+  "MARQUEURS_DATA": [
+    "parce que", "car", "puisque", "en raison de", "du fait que",
+    "selon", "d'après", "chiffres", "données", "statistiques", "source",
+    "rapport", "étude", "enquête", "mesure", "observé", "constaté", "indicateur"
+  ],
+  "MARQUEURS_WARRANT": [
+    "donc", "ainsi", "de sorte que", "afin de", "de manière à",
+    "ce qui implique que", "en conséquence", "dès lors", "partant",
+    "en général", "généralement", "habituellement", "normalement"
+  ],
+  "MARQUEURS_BACKING": [
+    "décret", "loi", "ordonnance", "arrêté", "article", "code",
+    "cour des comptes", "conseil d'état", "conseil constitutionnel",
+    "commission européenne", "banque de france", "ocde", "insee",
+    "jurisprudence", "directive", "règlement", "circulaire"
+  ],
+  "MARQUEURS_QUALIFIER": [
+    "probablement", "peut-être", "sans doute", "souvent", "rarement",
+    "dans la plupart des cas", "en principe", "en général", "il se peut",
+    "il est possible", "il est probable", "tend à"
+  ],
+  "MARQUEURS_REBUTTAL": [
+    "cependant", "toutefois", "néanmoins", "pourtant",
+    "sauf", "sauf si", "sauf que", "à condition que",
+    "sous réserve", "le cas échéant", "malgré", "bien que"
+  ]
+}

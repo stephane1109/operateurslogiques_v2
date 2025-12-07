@@ -1,0 +1,19 @@
+{
+  "des libertés, y compris normatives": "TENS_LIBERTE_VS_NORME",
+  "libertés normatives": "TENS_LIBERTE_VS_NORME",
+  
+  "mieux vaut montrer une France Unie qu'une France divisée": "TENS_UNITE_VS_DIVISION",
+  "France Unie": "TENS_UNITE_VS_DIVISION",
+  "France divisée": "TENS_UNITE_VS_DIVISION",
+
+  "voici incontestablement une rupture": "TENS_RUPTURE_VS_CONTINUITE",
+  "assurer la continuité de l'action de l'État": "TENS_RUPTURE_VS_CONTINUITE",
+  "continuité de l'action de l'État": "TENS_RUPTURE_VS_CONTINUITE",
+
+  "l'État s'est renforcé": "TENS_CENTRALISATION_VS_DECENTRALISATION",
+  "renforcer le pouvoir local": "TENS_CENTRALISATION_VS_DECENTRALISATION",
+  "décentraliser des responsabilités": "TENS_CENTRALISATION_VS_DECENTRALISATION",
+
+  "tirer les bienfaits d'une crise": "TENS_CRISE_VS_OPPORTUNITE",
+  "nous vivons dans une époque de crise": "TENS_CRISE_VS_OPPORTUNITE"
+}

@@ -1,0 +1,28 @@
+{
+  "fonction_dogmatisme": {
+    "description": "Énoncés définitoires ou axiomes qui posent une équivalence forte (X = Y) ou une vérité présentée comme évidente pour structurer le discours.",
+    "patterns_regex": [
+      "(?i)\\b(en v\u00e9rit\u00e9|au fond|au fond,|en r\u00e9alit\u00e9|en un mot)\\b",
+      "(?i)\\b(l[' ]essentiel, c[' ]est que|ce qui compte, c[' ]est que) [^\\.]{3,120}\\.",
+      "(?i)\\b(la|le|l'|les) [^\\.]{0,60}? c[' ]est [^\\.]{3,120}\\.",
+      "(?i)\\b(la vraie d\u00e9mocratie|la l\u00e9gitimit\u00e9 d\u00e9mocratique|la plus grande richesse|la condition indispensable) [^\\.]{0,80}? (c[' ]est|est) [^\\.]{3,120}\\.",
+      "(?i)\\b(doit \u00eatre compris comme|signifie que|veut dire que)\\b",
+      "(?i)\\b(en d'autres termes|en d'autres mots|autrement dit)\\b"
+    ],
+    "mots_cles": [
+      "c'est",
+      "est",
+      "doit \u00eatre compris comme",
+      "signifie que",
+      "en un mot",
+      "en v\u00e9rit\u00e9",
+      "autrement dit"
+    ],
+    "exemples_theoriques": [
+      "Le travail est la condition indispensable \u00e0 la croissance.",
+      "La l\u00e9gitimit\u00e9 d\u00e9mocratique, c'est une d\u00e9mocratie o\u00f9 le Parlement a un r\u00f4le politique.",
+      "Au fond, la vraie d\u00e9mocratie permet \u00e0 celles et ceux qui ne sont pas d'accord de travailler ensemble.",
+      "En d'autres termes, la ran\u00e7on de la libert\u00e9, c'est la responsabilit\u00e9."
+    ]
+  }
+}

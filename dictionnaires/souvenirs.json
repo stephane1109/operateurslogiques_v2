@@ -1,0 +1,47 @@
+{
+  "je me souviens": "MEM_PERS",
+  "je m'en souviens": "MEM_PERS",
+  "je n'ai pas oublié": "MEM_PERS",
+  "je n'oublie pas": "MEM_PERS",
+
+  "nous nous souvenons": "MEM_COLL",
+  "souvenons-nous": "MEM_COLL",
+  "souvenons nous": "MEM_COLL",
+  "souvenez-vous": "MEM_COLL",
+  "rappelez vous": "MEM_COLL",
+  "rappelez-vous": "MEM_COLL",
+  "la nation se souvient": "MEM_COLL",
+  "la mémoire collective": "MEM_COLL",
+
+  "rappelons que": "MEM_RAPPEL",
+  "je rappelle que": "MEM_RAPPEL",
+  "nous rappelons que": "MEM_RAPPEL",
+  "il ne faut pas oublier": "MEM_RAPPEL",
+  "il ne faut rien oublier": "MEM_RAPPEL",
+  "n'oublions pas": "MEM_RAPPEL",
+  "n'oubliez pas": "MEM_RAPPEL",
+  "qu’on se le rappelle": "MEM_RAPPEL",
+
+  "comme je l'ai déjà dit": "MEM_RENVOI",
+  "comme je l'ai déjà annoncé": "MEM_RENVOI",
+  "comme je l'ai indiqué": "MEM_RENVOI",
+  "je l'ai déjà dit": "MEM_RENVOI",
+  "je l'ai déjà annoncé": "MEM_RENVOI",
+  "je me suis engagé à": "MEM_RENVOI",
+  "je l'avais dit": "MEM_RENVOI",
+
+  "déjà": "MEM_REPET",
+  "encore": "MEM_REPET",
+  "à nouveau": "MEM_REPET",
+  "de nouveau": "MEM_REPET",
+  "une fois de plus": "MEM_REPET",
+  "une nouvelle fois": "MEM_REPET",
+  "une fois encore": "MEM_REPET",
+
+  "jadis": "MEM_PASSE",
+  "autrefois": "MEM_PASSE",
+  "naguère": "MEM_PASSE",
+  "auparavant": "MEM_PASSE",
+  "depuis toujours": "MEM_PASSE",
+  "comme toujours": "MEM_PASSE"
+}
