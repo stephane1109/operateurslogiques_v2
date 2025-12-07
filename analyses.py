@@ -1,6 +1,6 @@
 """Composants dédiés à l'onglet "Analyses"."""
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 import html
 import re
 
@@ -278,6 +278,7 @@ def render_detection_section(
     key_prefix: str = "",
     use_regex_cc: bool = True,
     heading_color: Optional[str] = None,
+    hidden_sections: Optional[Set[str]] = None,
     dico_connecteurs: Dict[str, str],
     dico_marqueurs: Dict[str, str],
     dico_memoires: Dict[str, str],
@@ -293,6 +294,11 @@ def render_detection_section(
     df_consq_lex = detections.get("df_consq_lex", pd.DataFrame())
     df_causes_lex = detections.get("df_causes_lex", pd.DataFrame())
     df_tensions = detections.get("df_tensions", pd.DataFrame())
+
+    hidden_sections = {section.lower() for section in hidden_sections or set()}
+
+    def _section_is_hidden(section_key: str) -> bool:
+        return section_key.lower() in hidden_sections
 
     def _subheader(titre: str) -> None:
         if heading_color:
@@ -316,33 +322,35 @@ def render_detection_section(
             key=f"{key_prefix}dl_occ_conn_csv",
         )
 
-    _subheader("Marqueurs détectés")
-    if df_marq.empty:
-        st.info("Aucun marqueur détecté.")
-    else:
-        st.dataframe(df_marq)
-        st.download_button(
-            "Exporter marqueurs (CSV)",
-            data=df_marq.to_csv(index=False).encode("utf-8"),
-            file_name="occurrences_marqueurs.csv",
-            mime="text/csv",
-            key=f"{key_prefix}dl_occ_marq_csv",
-        )
+    if not _section_is_hidden("marqueurs"):
+        _subheader("Marqueurs détectés")
+        if df_marq.empty:
+            st.info("Aucun marqueur détecté.")
+        else:
+            st.dataframe(df_marq)
+            st.download_button(
+                "Exporter marqueurs (CSV)",
+                data=df_marq.to_csv(index=False).encode("utf-8"),
+                file_name="occurrences_marqueurs.csv",
+                mime="text/csv",
+                key=f"{key_prefix}dl_occ_marq_csv",
+            )
 
-    _subheader("Tensions sémantiques détectées")
-    if not dico_tensions:
-        st.info("Aucun dictionnaire de tensions sémantiques chargé.")
-    elif df_tensions.empty:
-        st.info("Aucune tension sémantique détectée dans le texte.")
-    else:
-        st.dataframe(df_tensions)
-        st.download_button(
-            "Exporter tensions sémantiques (CSV)",
-            data=df_tensions.to_csv(index=False).encode("utf-8"),
-            file_name="tensions_semantiques.csv",
-            mime="text/csv",
-            key=f"{key_prefix}dl_occ_tensions_csv",
-        )
+    if not _section_is_hidden("tensions_semantiques"):
+        _subheader("Tensions sémantiques détectées")
+        if not dico_tensions:
+            st.info("Aucun dictionnaire de tensions sémantiques chargé.")
+        elif df_tensions.empty:
+            st.info("Aucune tension sémantique détectée dans le texte.")
+        else:
+            st.dataframe(df_tensions)
+            st.download_button(
+                "Exporter tensions sémantiques (CSV)",
+                data=df_tensions.to_csv(index=False).encode("utf-8"),
+                file_name="tensions_semantiques.csv",
+                mime="text/csv",
+                key=f"{key_prefix}dl_occ_tensions_csv",
+            )
 
     _subheader("Marqueurs mémoire détectés")
     if df_memoires.empty:
@@ -359,35 +367,37 @@ def render_detection_section(
 
     colX, colY = st.columns(2)
     with colX:
-        _subheader("Déclencheurs de conséquence (Regex)")
-        if not use_regex_cc:
-            st.info("Méthode Regex désactivée (voir barre latérale).")
-        elif df_consq_lex.empty:
-            st.info("Aucun déclencheur de conséquence détecté par Regex.")
-        else:
-            st.dataframe(df_consq_lex)
-            st.download_button(
-                "Exporter conséquences (CSV)",
-                data=df_consq_lex.to_csv(index=False).encode("utf-8"),
-                file_name="occurrences_consequences.csv",
-                mime="text/csv",
-                key=f"{key_prefix}dl_occ_consq_csv",
-            )
+        if not _section_is_hidden("regex_consequence"):
+            _subheader("Déclencheurs de conséquence (Regex)")
+            if not use_regex_cc:
+                st.info("Méthode Regex désactivée (voir barre latérale).")
+            elif df_consq_lex.empty:
+                st.info("Aucun déclencheur de conséquence détecté par Regex.")
+            else:
+                st.dataframe(df_consq_lex)
+                st.download_button(
+                    "Exporter conséquences (CSV)",
+                    data=df_consq_lex.to_csv(index=False).encode("utf-8"),
+                    file_name="occurrences_consequences.csv",
+                    mime="text/csv",
+                    key=f"{key_prefix}dl_occ_consq_csv",
+                )
     with colY:
-        _subheader("Déclencheurs de cause (Regex)")
-        if not use_regex_cc:
-            st.info("Méthode Regex désactivée (voir barre latérale).")
-        elif df_causes_lex.empty:
-            st.info("Aucun déclencheur de cause détecté par Regex.")
-        else:
-            st.dataframe(df_causes_lex)
-            st.download_button(
-                "Exporter causes (CSV)",
-                data=df_causes_lex.to_csv(index=False).encode("utf-8"),
-                file_name="occurrences_causes.csv",
-                mime="text/csv",
-                key=f"{key_prefix}dl_occ_causes_csv",
-            )
+        if not _section_is_hidden("regex_cause"):
+            _subheader("Déclencheurs de cause (Regex)")
+            if not use_regex_cc:
+                st.info("Méthode Regex désactivée (voir barre latérale).")
+            elif df_causes_lex.empty:
+                st.info("Aucun déclencheur de cause détecté par Regex.")
+            else:
+                st.dataframe(df_causes_lex)
+                st.download_button(
+                    "Exporter causes (CSV)",
+                    data=df_causes_lex.to_csv(index=False).encode("utf-8"),
+                    file_name="occurrences_causes.csv",
+                    mime="text/csv",
+                    key=f"{key_prefix}dl_occ_causes_csv",
+                )
     _subheader("Texte annoté")
 
     codes_disponibles = sorted({str(v).upper() for v in dico_connecteurs.values()})
@@ -529,6 +539,7 @@ def render_analyses_tab(
     detections: Dict[str, pd.DataFrame],
     *,
     use_regex_cc: bool,
+    hidden_sections: Optional[Set[str]] = None,
     dico_connecteurs: Dict[str, str],
     dico_marqueurs: Dict[str, str],
     dico_memoires: Dict[str, str],
@@ -549,5 +560,6 @@ def render_analyses_tab(
         dico_consq=dico_consq,
         dico_causes=dico_causes,
         dico_tensions=dico_tensions,
+        hidden_sections=hidden_sections,
     )
 
