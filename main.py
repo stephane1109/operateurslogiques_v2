@@ -51,6 +51,11 @@ from storytelling.actanciel import (
     synthese_roles_actanciels,
 )
 from streamlit_utils import dataframe_safe
+from iramuteq.corpusiramuteq import (
+    filtrer_modalites,
+    fusionner_textes_modalites,
+    segmenter_corpus_par_modalite,
+)
 from text_utils import normaliser_espace, segmenter_en_phrases
 from annotations import render_annotation_tab
 from analaysesentiments import render_zero_shot_tab
@@ -832,6 +837,11 @@ DICOS_REFERENCE = {
 if "dicos_actifs" not in st.session_state:
     st.session_state["dicos_actifs"] = copy.deepcopy(DICOS_REFERENCE)
 
+if "iramuteq_df" not in st.session_state:
+    st.session_state["iramuteq_df"] = pd.DataFrame(columns=["modalite", "texte"])
+if "iramuteq_fichier" not in st.session_state:
+    st.session_state["iramuteq_fichier"] = ""
+
 dicos_actifs = st.session_state["dicos_actifs"]
 DICO_CONDITIONS = dicos_actifs.get("conditions", {})
 DICO_ALTERNATIVES = dicos_actifs.get("alternatives", {})
@@ -968,6 +978,8 @@ libelle_discours_2 = (
     tab_annot,
     tab_storytelling,
     tab_zero_shot,
+    tab_import_iramuteq,
+    tab_corpus_iramuteq,
 ) = st.tabs(
     [
         "Analyses",
@@ -981,6 +993,8 @@ libelle_discours_2 = (
         "Annot",
         "Storytelling",
         "zeroclassification",
+        "Import IRaMuTeQ",
+        "corpusiramuteq",
     ]
 )
 
@@ -1409,6 +1423,83 @@ with tab_zero_shot:
         libelle_discours_1,
         libelle_discours_2,
     )
+
+with tab_import_iramuteq:
+    st.subheader("Importer un corpus IRaMuTeQ (.txt)")
+    st.caption(
+        "Le fichier doit être balisé par des lignes de type '**** *modalite_' qui séparent les segments du corpus."
+    )
+    fichier_iramuteq = st.file_uploader(
+        "Déposer un fichier IRaMuTeQ (.txt)",
+        type=["txt"],
+        accept_multiple_files=False,
+        key="iramuteq_txt",
+    )
+
+    if fichier_iramuteq is not None:
+        try:
+            texte_corpus = lire_fichier_txt(fichier_iramuteq)
+            df_modalites = segmenter_corpus_par_modalite(texte_corpus)
+        except Exception as err:
+            st.error(f"Impossible de lire le corpus : {err}")
+        else:
+            st.session_state["iramuteq_df"] = df_modalites
+            st.session_state["iramuteq_fichier"] = fichier_iramuteq.name
+            if df_modalites.empty:
+                st.warning("Aucune modalité détectée dans ce fichier.")
+            else:
+                st.success(
+                    f"Corpus importé : {fichier_iramuteq.name} • {len(df_modalites)} modalités identifiées"
+                )
+                st.dataframe(df_modalites, use_container_width=True)
+
+    if st.session_state.get("iramuteq_fichier"):
+        st.info(
+            f"Dernier corpus importé : {st.session_state['iramuteq_fichier']}"
+        )
+
+with tab_corpus_iramuteq:
+    st.subheader("Corpus IRaMuTeQ : sélection des modalités")
+    df_modalites = st.session_state.get("iramuteq_df", pd.DataFrame())
+
+    if df_modalites.empty:
+        st.info("Aucun corpus IRaMuTeQ n'a été importé pour le moment.")
+    else:
+        modalites_disponibles = sorted(
+            [m for m in df_modalites["modalite"].dropna().unique().tolist() if str(m).strip()]
+        )
+        selection_modalites = st.multiselect(
+            "Choisir une ou plusieurs modalités à analyser",
+            options=modalites_disponibles,
+            default=modalites_disponibles,
+        )
+
+        df_selection = filtrer_modalites(df_modalites, selection_modalites)
+        if df_selection.empty:
+            st.warning("Aucune modalité sélectionnée ou correspondance vide.")
+        else:
+            st.markdown("**Aperçu des textes sélectionnés**")
+            st.dataframe(df_selection, use_container_width=True)
+
+            texte_modalites = fusionner_textes_modalites(df_selection)
+            st.markdown(
+                f"Longueur du texte combiné : {len(texte_modalites)} caractères pour {len(df_selection)} segment(s)"
+            )
+
+            detections_modalites = preparer_detections(texte_modalites, use_regex_cc)
+            render_analyses_tab(
+                "Corpus IRaMuTeQ (modalités sélectionnées)",
+                texte_modalites,
+                detections_modalites,
+                use_regex_cc=use_regex_cc,
+                dico_connecteurs=DICO_CONNECTEURS,
+                dico_marqueurs=DICO_MARQUEURS,
+                dico_memoires=DICO_MEMOIRES,
+                dico_consq=DICO_CONSQS,
+                dico_causes=DICO_CAUSES,
+                dico_tensions=DICO_TENSIONS,
+                key_prefix="iramuteq_",
+            )
 
 with tab_stats_norm:
     render_stats_norm_tab(
