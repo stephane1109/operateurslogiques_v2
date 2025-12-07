@@ -265,6 +265,12 @@ def render_corpus_iramuteq_tab(
         texte_modalites,
         detections_modalites,
         use_regex_cc=use_regex_cc,
+        hidden_sections={
+            "marqueurs",
+            "tensions_semantiques",
+            "regex_consequence",
+            "regex_cause",
+        },
         dico_connecteurs=dico_connecteurs_iramuteq,
         dico_marqueurs={},
         dico_memoires={},
