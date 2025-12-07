@@ -15,18 +15,33 @@ def nettoyer_nom_modalite(modalite_brute: str) -> str:
     return modalite_brute.strip().strip("*_ ")
 
 
-def segmenter_corpus_par_modalite(texte_corpus: str) -> pd.DataFrame:
-    """Segmente un corpus IRaMuTeQ en DataFrame modalité / texte.
+def extraire_variable_et_modalite(nom_balise: str) -> Dict[str, str]:
+    """Retourne la variable et la modalité à partir d'une balise IRaMuTeQ."""
 
-    Le format attendu repose sur des lignes de type "**** *modalite_" qui
+    nom_nettoye = nettoyer_nom_modalite(nom_balise)
+    if not nom_nettoye:
+        return {"variable": "", "modalite": ""}
+
+    if "_" in nom_nettoye:
+        variable, modalite = nom_nettoye.split("_", 1)
+    else:
+        variable, modalite = nom_nettoye, ""
+
+    return {"variable": variable.strip(), "modalite": modalite.strip()}
+
+
+def segmenter_corpus_par_modalite(texte_corpus: str) -> pd.DataFrame:
+    """Segmente un corpus IRaMuTeQ en DataFrame variable / modalité / texte.
+
+    Le format attendu repose sur des lignes de type "**** *variable_modalite" qui
     marquent le début d'un nouveau segment. Tout le texte qui suit jusqu'à la
     prochaine balise appartient à cette modalité.
     """
 
     if not texte_corpus:
-        return pd.DataFrame(columns=["modalite", "texte"])
+        return pd.DataFrame(columns=["variable", "modalite", "texte", "balise"])
 
-    motif_modalite = re.compile(r"^\*{4}\s*\*(.+)$", re.MULTILINE)
+    motif_modalite = re.compile(r"^(\*{4}\s*\*(.+))$", re.MULTILINE)
     segments: List[dict] = []
 
     positions = list(motif_modalite.finditer(texte_corpus))
@@ -34,29 +49,73 @@ def segmenter_corpus_par_modalite(texte_corpus: str) -> pd.DataFrame:
         debut_contenu = match.end()
         fin_contenu = positions[idx + 1].start() if idx + 1 < len(positions) else len(texte_corpus)
         contenu = texte_corpus[debut_contenu:fin_contenu].strip()
-        modalite = nettoyer_nom_modalite(match.group(1))
-        if modalite:
-            segments.append({"modalite": modalite, "texte": contenu})
+        infos_balise = extraire_variable_et_modalite(match.group(2))
+        if infos_balise.get("variable") or infos_balise.get("modalite"):
+            segments.append(
+                {
+                    "variable": infos_balise.get("variable", ""),
+                    "modalite": infos_balise.get("modalite", ""),
+                    "texte": contenu,
+                    "balise": match.group(1).strip(),
+                }
+            )
 
-    return pd.DataFrame(segments, columns=["modalite", "texte"])
+    return pd.DataFrame(segments, columns=["variable", "modalite", "texte", "balise"])
 
 
-def filtrer_modalites(df_modalites: pd.DataFrame, modalites: Iterable[str]) -> pd.DataFrame:
-    """Retourne uniquement les lignes correspondant aux modalités choisies."""
+def filtrer_modalites(
+    df_modalites: pd.DataFrame, modalites: Iterable[str], variable: str | None = None
+) -> pd.DataFrame:
+    """Retourne uniquement les lignes correspondant aux modalités et variable choisies."""
+
     if df_modalites is None or df_modalites.empty:
-        return pd.DataFrame(columns=["modalite", "texte"])
+        return pd.DataFrame(columns=["variable", "modalite", "texte", "balise"])
+
+    df_filtre = df_modalites
+    if variable:
+        df_filtre = df_filtre[df_filtre["variable"] == variable]
+
     modalites_set = {m for m in modalites if m}
-    if not modalites_set:
-        return pd.DataFrame(columns=["modalite", "texte"])
-    return df_modalites[df_modalites["modalite"].isin(modalites_set)].copy()
+    if modalites_set:
+        df_filtre = df_filtre[df_filtre["modalite"].isin(modalites_set)]
+
+    if df_filtre.empty:
+        return pd.DataFrame(columns=["variable", "modalite", "texte", "balise"])
+
+    return df_filtre.copy()
 
 
 def fusionner_textes_modalites(df_modalites: pd.DataFrame) -> str:
-    """Concatène les textes des modalités en les séparant par deux retours."""
+    """Concatène les textes des modalités en préservant les balises d'origine."""
+
     if df_modalites is None or df_modalites.empty:
         return ""
-    textes = [str(val).strip() for val in df_modalites["texte"] if str(val).strip()]
-    return "\n\n".join(textes)
+
+    segments_concat = []
+    for _, ligne in df_modalites.iterrows():
+        texte = str(ligne.get("texte", "")).strip()
+        if not texte:
+            continue
+
+        balise = str(ligne.get("balise") or "").strip()
+        if not balise:
+            variable = str(ligne.get("variable", "")).strip()
+            modalite = str(ligne.get("modalite", "")).strip()
+            balise = f"**** *{variable}_{modalite}".rstrip("_")
+
+        segments_concat.append(f"{balise}\n{texte}")
+
+    return "\n\n".join(segments_concat)
+
+
+def fusionner_textes_par_variable(df_modalites: pd.DataFrame, variable: str) -> str:
+    """Concatène tous les textes d'une variable (toutes modalités confondues)."""
+
+    if not variable:
+        return ""
+
+    df_variable = filtrer_modalites(df_modalites, modalites=[], variable=variable)
+    return fusionner_textes_modalites(df_variable)
 
 
 def frequences_marqueurs_par_modalite(
