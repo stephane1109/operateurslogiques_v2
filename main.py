@@ -51,7 +51,6 @@ from storytelling.actanciel import (
     synthese_roles_actanciels,
 )
 from storytelling.sentiments import render_sentiments_tab
-from storytelling.feel import render_feel_tab
 from streamlit_utils import dataframe_safe
 from text_utils import normaliser_espace, segmenter_en_phrases
 from annotations import render_annotation_tab
@@ -977,7 +976,6 @@ libelle_discours_2 = (
     tab_camembert,
     tab_toxicite,
     tab_zero_shot,
-    tab_feel,
 ) = st.tabs(
     [
         "Analyses",
@@ -994,7 +992,6 @@ libelle_discours_2 = (
         "AnalysSentCamemBert",
         "AnalysSentToxic",
         "zeroclassification",
-        "FEEL",
     ]
 )
 
@@ -1442,14 +1439,6 @@ with tab_toxicite:
 
 with tab_zero_shot:
     render_zero_shot_tab(
-        texte_source,
-        texte_source_2,
-        libelle_discours_1,
-        libelle_discours_2,
-    )
-
-with tab_feel:
-    render_feel_tab(
         texte_source,
         texte_source_2,
         libelle_discours_1,
