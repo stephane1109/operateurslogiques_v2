@@ -141,11 +141,11 @@ def render_corpus_iramuteq_tab(
             texte_modalite,
             use_regex_cc,
             dico_connecteurs=dico_connecteurs_iramuteq,
-            dico_marqueurs=dico_marqueurs,
-            dico_memoires=dico_memoires,
-            dico_consq=dico_consq,
-            dico_causes=dico_causes,
-            dico_tensions=dico_tensions,
+            dico_marqueurs={},
+            dico_memoires={},
+            dico_consq={},
+            dico_causes={},
+            dico_tensions={},
         )
         freq_modalite = frequences_marqueurs_par_modalite(detections_modalite)
 
@@ -177,56 +177,28 @@ def render_corpus_iramuteq_tab(
                 True,
                 key=f"show_codes_{modalite_courante}",
             )
-            show_marqueurs_categories_flag = st.checkbox(
-                "Afficher les catégories des marqueurs",
-                True,
-                key=f"show_mark_{modalite_courante}",
-            )
-            show_memoires_categories_flag = st.checkbox(
-                "Afficher les catégories des mémoires",
-                True,
-                key=f"show_memo_{modalite_courante}",
-            )
-            show_tensions_categories_flag = st.checkbox(
-                "Afficher les catégories des tensions",
-                True,
-                key=f"show_tensions_{modalite_courante}",
-            )
 
             st.markdown("**Texte annoté (HTML)**")
             codes_disponibles = {str(v).upper() for v in dico_connecteurs_iramuteq.values()}
-            categories_marqueurs = {str(v).upper() for v in dico_marqueurs.values()}
-            categories_memoires = {str(v).upper() for v in dico_memoires.values()}
-            categories_tensions = {str(v).upper() for v in dico_tensions.values()}
 
             show_codes_dict = {code: show_codes for code in codes_disponibles}
-            show_marqueurs_categories = {
-                cat: show_marqueurs_categories_flag for cat in categories_marqueurs
-            } or None
-            show_memoires_categories = {
-                cat: show_memoires_categories_flag for cat in categories_memoires
-            } or None
-            show_tensions_categories = {
-                cat: show_tensions_categories_flag for cat in categories_tensions
-            } or None
-
             show_consequences = use_regex_cc and show_codes
             show_causes = use_regex_cc and show_codes
             texte_annote = html_annote(
                 texte_modalite,
                 dico_connecteurs_iramuteq,
-                dico_marqueurs,
-                dico_memoires,
-                dico_consq if use_regex_cc else {},
-                dico_causes if use_regex_cc else {},
-                dico_tensions,
+                {},
+                {},
+                {},
+                {},
+                {},
                 show_codes_dict,
                 show_consequences,
                 show_causes,
                 True,
-                show_marqueurs_categories=show_marqueurs_categories,
-                show_memoires_categories=show_memoires_categories,
-                show_tensions_categories=show_tensions_categories,
+                show_marqueurs_categories=None,
+                show_memoires_categories=None,
+                show_tensions_categories=None,
             )
             st.markdown(texte_annote, unsafe_allow_html=True)
 
@@ -255,11 +227,11 @@ def render_corpus_iramuteq_tab(
         texte_modalites,
         use_regex_cc,
         dico_connecteurs=dico_connecteurs_iramuteq,
-        dico_marqueurs=dico_marqueurs,
-        dico_memoires=dico_memoires,
-        dico_consq=dico_consq,
-        dico_causes=dico_causes,
-        dico_tensions=dico_tensions,
+        dico_marqueurs={},
+        dico_memoires={},
+        dico_consq={},
+        dico_causes={},
+        dico_tensions={},
     )
     freq_selection = frequences_marqueurs_par_modalite(detections_modalites)
     st.markdown("**Fréquences globales des marqueurs (sélection)**")
@@ -280,10 +252,10 @@ def render_corpus_iramuteq_tab(
         detections_modalites,
         use_regex_cc=use_regex_cc,
         dico_connecteurs=dico_connecteurs_iramuteq,
-        dico_marqueurs=dico_marqueurs,
-        dico_memoires=dico_memoires,
-        dico_consq=dico_consq,
-        dico_causes=dico_causes,
-        dico_tensions=dico_tensions,
+        dico_marqueurs={},
+        dico_memoires={},
+        dico_consq={},
+        dico_causes={},
+        dico_tensions={},
         key_prefix="iramuteq_",
     )
