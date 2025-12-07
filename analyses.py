@@ -352,18 +352,19 @@ def render_detection_section(
                 key=f"{key_prefix}dl_occ_tensions_csv",
             )
 
-    _subheader("Marqueurs mémoire détectés")
-    if df_memoires.empty:
-        st.info("Aucun marqueur mémoire détecté.")
-    else:
-        st.dataframe(df_memoires)
-        st.download_button(
-            "Exporter marqueurs mémoire (CSV)",
-            data=df_memoires.to_csv(index=False).encode("utf-8"),
-            file_name="occurrences_memoires.csv",
-            mime="text/csv",
-            key=f"{key_prefix}dl_occ_memoires_csv",
-        )
+    if not _section_is_hidden("memoires"):
+        _subheader("Marqueurs mémoire détectés")
+        if df_memoires.empty:
+            st.info("Aucun marqueur mémoire détecté.")
+        else:
+            st.dataframe(df_memoires)
+            st.download_button(
+                "Exporter marqueurs mémoire (CSV)",
+                data=df_memoires.to_csv(index=False).encode("utf-8"),
+                file_name="occurrences_memoires.csv",
+                mime="text/csv",
+                key=f"{key_prefix}dl_occ_memoires_csv",
+            )
 
     colX, colY = st.columns(2)
     with colX:
