@@ -174,15 +174,6 @@ def render_corpus_iramuteq_tab(
 
             st.markdown("**Détections et texte annoté**")
 
-            afficher_detections = st.checkbox(
-                "Afficher les détections brutes",
-                value=False,
-                key=f"show_detections_{modalite_courante}",
-                help="Affiche la structure JSON des détections effectuées pour cette modalité.",
-            )
-            if afficher_detections:
-                st.json(detections_modalite)
-
             st.markdown("**Paramètres de rendu**")
             st.caption("Les options ci-dessous influent sur le rendu HTML (badges).")
             show_codes = st.checkbox(
