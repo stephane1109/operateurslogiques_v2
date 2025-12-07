@@ -14,4 +14,3 @@ prince>=0.13
 transformers>=4.41
 torch>=2.2
 sentencepiece>=0.1.99
-vaderSentiment_fr>=1.1
