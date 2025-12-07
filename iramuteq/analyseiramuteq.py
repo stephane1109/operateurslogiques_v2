@@ -170,21 +170,6 @@ def render_corpus_iramuteq_tab(
             if afficher_detections:
                 st.json(detections_modalite)
 
-            texte_annote = html_annote(
-                texte_modalite,
-                detections_modalite,
-                html_conn=True,
-                html_marqueurs=True,
-                html_memoire=True,
-                html_cause_consq=use_regex_cc,
-                html_tension=True,
-                css_badges=css_badges,
-                couleurs_conn=COULEURS_BADGES,
-                couleurs_marqueurs=COULEURS_MARQUEURS,
-                couleurs_tensions=COULEURS_TENSIONS,
-                legende=True,
-            )
-
             st.markdown("**Paramètres de rendu**")
             st.caption("Les options ci-dessous influent sur le rendu HTML (badges).")
             show_codes = st.checkbox(
@@ -192,40 +177,56 @@ def render_corpus_iramuteq_tab(
                 True,
                 key=f"show_codes_{modalite_courante}",
             )
-            show_marqueurs_categories = st.checkbox(
+            show_marqueurs_categories_flag = st.checkbox(
                 "Afficher les catégories des marqueurs",
                 True,
                 key=f"show_mark_{modalite_courante}",
             )
-            show_memoires_categories = st.checkbox(
+            show_memoires_categories_flag = st.checkbox(
                 "Afficher les catégories des mémoires",
                 True,
                 key=f"show_memo_{modalite_courante}",
             )
-            show_tensions_categories = st.checkbox(
+            show_tensions_categories_flag = st.checkbox(
                 "Afficher les catégories des tensions",
                 True,
                 key=f"show_tensions_{modalite_courante}",
             )
 
             st.markdown("**Texte annoté (HTML)**")
+            codes_disponibles = {str(v).upper() for v in dico_connecteurs_iramuteq.values()}
+            categories_marqueurs = {str(v).upper() for v in dico_marqueurs.values()}
+            categories_memoires = {str(v).upper() for v in dico_memoires.values()}
+            categories_tensions = {str(v).upper() for v in dico_tensions.values()}
+
+            show_codes_dict = {code: show_codes for code in codes_disponibles}
+            show_marqueurs_categories = {
+                cat: show_marqueurs_categories_flag for cat in categories_marqueurs
+            } or None
+            show_memoires_categories = {
+                cat: show_memoires_categories_flag for cat in categories_memoires
+            } or None
+            show_tensions_categories = {
+                cat: show_tensions_categories_flag for cat in categories_tensions
+            } or None
+
+            show_consequences = use_regex_cc and show_codes
+            show_causes = use_regex_cc and show_codes
             texte_annote = html_annote(
                 texte_modalite,
-                detections_modalite,
-                html_conn=True,
-                html_marqueurs=True,
-                html_memoire=True,
-                html_cause_consq=use_regex_cc,
-                html_tension=True,
-                css_badges=css_badges,
-                couleurs_conn=COULEURS_BADGES,
-                couleurs_marqueurs=COULEURS_MARQUEURS,
-                couleurs_tensions=COULEURS_TENSIONS,
-                legende=False,
-                show_codes=show_codes,
-                show_marqueurs=show_marqueurs_categories,
-                show_memoires=show_memoires_categories,
-                show_tensions=show_tensions_categories,
+                dico_connecteurs_iramuteq,
+                dico_marqueurs,
+                dico_memoires,
+                dico_consq if use_regex_cc else {},
+                dico_causes if use_regex_cc else {},
+                dico_tensions,
+                show_codes_dict,
+                show_consequences,
+                show_causes,
+                True,
+                show_marqueurs_categories=show_marqueurs_categories,
+                show_memoires_categories=show_memoires_categories,
+                show_tensions_categories=show_tensions_categories,
             )
             st.markdown(texte_annote, unsafe_allow_html=True)
 
