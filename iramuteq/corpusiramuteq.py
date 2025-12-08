@@ -43,7 +43,7 @@ def segmenter_corpus_par_modalite(texte_corpus: str) -> pd.DataFrame:
         return pd.DataFrame(columns=["variable", "modalite", "texte", "balise"])
 
     motif_balises = re.compile(
-        r"^(?P<limite>\*{4}\s*$)|^(?P<balise>[\*\$].+)$", re.MULTILINE
+        r"^\s*(?P<limite>\*{4}\s*$)|^\s*(?P<balise>[\*\$].+)$", re.MULTILINE
     )
     segments: List[dict] = []
 
@@ -52,6 +52,8 @@ def segmenter_corpus_par_modalite(texte_corpus: str) -> pd.DataFrame:
         balise_modalite = match.group("balise")
         if not balise_modalite:
             continue  # Ligne "****" : on avance jusqu'à la prochaine balise utile
+
+        balise_modalite = balise_modalite.strip()
 
         debut_contenu = match.end()
         fin_contenu = balises[idx + 1].start() if idx + 1 < len(balises) else len(texte_corpus)
