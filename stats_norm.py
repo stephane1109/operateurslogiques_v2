@@ -168,8 +168,16 @@ def _render_stats_norm_block(
     df_tensions: pd.DataFrame | None,
     heading: str,
     heading_color: str,
+    sections: list[str] | None = None,
 ) -> None:
     """Affiche les statistiques pour un discours donné."""
+
+    sections = [s.strip().lower() for s in sections] if sections else []
+
+    def _should_render(section: str) -> bool:
+        if not sections:
+            return True
+        return section.lower() in sections
 
     if not texte_source or not texte_source.strip():
         st.info("Fournissez un texte pour calculer les ratios normalisés.")
@@ -227,97 +235,104 @@ def _render_stats_norm_block(
     def pretty_label(categorie: str) -> str:
         return categorie.replace("_", " ")
 
-    sections: list[tuple[str, list[RatioResult]]] = []
+    sections_data: list[tuple[str, list[RatioResult]]] = []
 
-    sections.append(
-        (
-            "Repères conditionnels",
-            [
-                RatioResult("Occurrences de « si »", nb_si, ratio_si),
-                RatioResult("Schémas ‘si … alors’", nb_schemas, ratio_schema),
-            ],
+    if _should_render("reperes"):
+        sections_data.append(
+            (
+                "Repères conditionnels",
+                [
+                    RatioResult("Occurrences de « si »", nb_si, ratio_si),
+                    RatioResult("Schémas ‘si … alors’", nb_schemas, ratio_schema),
+                ],
+            )
         )
-    )
 
-    sections.append(
-        (
-            "Connecteurs logiques",
-            _resultats_par_categorie(
-                serie_connecteurs,
-                total_mots,
+    if _should_render("connecteurs"):
+        sections_data.append(
+            (
                 "Connecteurs logiques",
-                ajouter_total=True,
-                format_categorie=pretty_label,
-            ),
+                _resultats_par_categorie(
+                    serie_connecteurs,
+                    total_mots,
+                    "Connecteurs logiques",
+                    ajouter_total=True,
+                    format_categorie=pretty_label,
+                ),
+            )
         )
-    )
 
-    sections.append(
-        (
-            "Marqueurs normatifs",
-            _resultats_par_categorie(
-                serie_normatifs,
-                total_mots,
-                "Normatifs",
-                ajouter_total=True,
-                format_categorie=pretty_label,
-            ),
+    if _should_render("normatifs"):
+        sections_data.append(
+            (
+                "Marqueurs normatifs",
+                _resultats_par_categorie(
+                    serie_normatifs,
+                    total_mots,
+                    "Normatifs",
+                    ajouter_total=True,
+                    format_categorie=pretty_label,
+                ),
+            )
         )
-    )
 
-    sections.append(
-        (
-            "Marqueurs mémoire",
-            _resultats_par_categorie(
-                serie_memoires,
-                total_mots,
-                "Mémoire",
-                ajouter_total=True,
-                format_categorie=pretty_label,
-            ),
+    if _should_render("memoires"):
+        sections_data.append(
+            (
+                "Marqueurs mémoire",
+                _resultats_par_categorie(
+                    serie_memoires,
+                    total_mots,
+                    "Mémoire",
+                    ajouter_total=True,
+                    format_categorie=pretty_label,
+                ),
+            )
         )
-    )
 
-    sections.append(
-        (
-            "Déclencheurs de conséquence",
-            _resultats_par_categorie(
-                serie_consq,
-                total_mots,
-                "Conséquence",
-                ajouter_total=True,
-                format_categorie=pretty_label,
-            ),
+    if _should_render("consequences"):
+        sections_data.append(
+            (
+                "Déclencheurs de conséquence",
+                _resultats_par_categorie(
+                    serie_consq,
+                    total_mots,
+                    "Conséquence",
+                    ajouter_total=True,
+                    format_categorie=pretty_label,
+                ),
+            )
         )
-    )
 
-    sections.append(
-        (
-            "Déclencheurs de cause",
-            _resultats_par_categorie(
-                serie_causes,
-                total_mots,
-                "Cause",
-                ajouter_total=True,
-                format_categorie=pretty_label,
-            ),
+    if _should_render("causes"):
+        sections_data.append(
+            (
+                "Déclencheurs de cause",
+                _resultats_par_categorie(
+                    serie_causes,
+                    total_mots,
+                    "Cause",
+                    ajouter_total=True,
+                    format_categorie=pretty_label,
+                ),
+            )
         )
-    )
 
-    sections.append(
-        (
-            "Tensions sémantiques",
-            _resultats_par_categorie(
-                serie_tensions,
-                total_mots,
-                "Tension",
-                ajouter_total=True,
-                format_categorie=pretty_label,
-            ),
+    if _should_render("tensions"):
+        sections_data.append(
+            (
+                "Tensions sémantiques",
+                _resultats_par_categorie(
+                    serie_tensions,
+                    total_mots,
+                    "Tension",
+                    ajouter_total=True,
+                    format_categorie=pretty_label,
+                ),
+            )
         )
-    )
 
-    for titre, resultats in sections:
+    for titre, resultats in sections_data:
         st.markdown(
             f'<span style="color:{couleur_titre}; font-weight:700; font-size:1.2rem;">{titre}</span>',
             unsafe_allow_html=True,
@@ -355,7 +370,8 @@ def render_stats_norm_tab(
     heading_discours_2: str = "Discours 2",
     couleur_discours_1: str = "#c00000",
     couleur_discours_2: str = "#1f4e79",
-    ) -> None:
+    sections: list[str] | None = None,
+) -> None:
     """Affiche les statistiques normalisées dans l'onglet dédié Streamlit."""
 
     st.subheader("Statistiques normalisées (par 1 000 mots)")
@@ -393,6 +409,7 @@ def render_stats_norm_tab(
                 df_tensions,
                 heading=label_discours_1,
                 heading_color=couleur_discours_1,
+                sections=sections,
             )
         with col_right:
             _render_stats_norm_block(
@@ -405,6 +422,7 @@ def render_stats_norm_tab(
                 df_tensions_2 if df_tensions_2 is not None else pd.DataFrame(),
                 heading=label_discours_2,
                 heading_color=couleur_discours_2,
+                sections=sections,
             )
     else:
         _render_stats_norm_block(
@@ -417,4 +435,5 @@ def render_stats_norm_tab(
             df_tensions,
             heading=label_discours_1,
             heading_color=couleur_discours_1,
+            sections=sections,
         )
