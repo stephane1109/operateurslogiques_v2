@@ -23,7 +23,7 @@ from iramuteq.corpusiramuteq import (
     fusionner_textes_par_variable,
     frequences_marqueurs_par_modalite,
 )
-from stats_norm import render_stats_norm_tab
+from stats_norm import _render_stats_norm_block, render_stats_norm_tab
 from text_utils import normaliser_espace
 
 
@@ -160,6 +160,63 @@ def render_corpus_iramuteq_tab(
 
     st.markdown("**Aperçu des textes sélectionnés**")
     st.dataframe(df_selection, use_container_width=True)
+
+    st.markdown("### Statistiques normalisées (par 1 000 mots)")
+    st.caption(
+        "Calcul basé sur les connecteurs logiques du dictionnaire IRaMuTeQ pour les modalités sélectionnées."
+    )
+
+    blocs_stats = []
+    for idx, ligne in df_selection.iterrows():
+        modalite_courante = str(ligne.get("modalite", "")).strip()
+        texte_modalite = str(ligne.get("texte", ""))
+        detections_stats = preparer_detections_fn(
+            texte_modalite,
+            use_regex_cc,
+            dico_connecteurs=dico_connecteurs_iramuteq,
+            dico_marqueurs={},
+            dico_memoires={},
+            dico_consq={},
+            dico_causes={},
+            dico_tensions={},
+        )
+        blocs_stats.append(
+            {
+                "heading": f"{variable_selectionnee} — {modalite_courante}",
+                "texte": texte_modalite,
+                "df_conn": detections_stats.get("df_conn", pd.DataFrame()),
+                "df_marq": detections_stats.get("df_marq", pd.DataFrame()),
+                "df_mem": detections_stats.get("df_memoires", pd.DataFrame()),
+                "df_consq": detections_stats.get("df_consq_lex", pd.DataFrame()),
+                "df_causes": detections_stats.get("df_causes_lex", pd.DataFrame()),
+                "df_tensions": detections_stats.get("df_tensions", pd.DataFrame()),
+            }
+        )
+
+    if not blocs_stats:
+        st.info("Aucune modalité disponible pour afficher des statistiques normalisées.")
+        return
+
+    couleurs_stats = ["#c00000", "#1f4e79"]
+    for start in range(0, len(blocs_stats), 2):
+        col_a, col_b = st.columns(2)
+        for offset, col in enumerate([col_a, col_b]):
+            bloc_idx = start + offset
+            if bloc_idx >= len(blocs_stats):
+                continue
+            bloc = blocs_stats[bloc_idx]
+            with col:
+                _render_stats_norm_block(
+                    bloc["texte"],
+                    bloc["df_conn"],
+                    bloc["df_marq"],
+                    bloc["df_mem"],
+                    bloc["df_consq"],
+                    bloc["df_causes"],
+                    bloc["df_tensions"],
+                    heading=bloc["heading"],
+                    heading_color=couleurs_stats[bloc_idx % len(couleurs_stats)],
+                )
 
     st.markdown("### Analyses par modalité sélectionnée")
     for idx, ligne in df_selection.iterrows():
