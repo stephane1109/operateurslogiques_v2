@@ -198,25 +198,19 @@ def render_corpus_iramuteq_tab(
         return
 
     couleurs_stats = ["#c00000", "#1f4e79"]
-    for start in range(0, len(blocs_stats), 2):
-        col_a, col_b = st.columns(2)
-        for offset, col in enumerate([col_a, col_b]):
-            bloc_idx = start + offset
-            if bloc_idx >= len(blocs_stats):
-                continue
-            bloc = blocs_stats[bloc_idx]
-            with col:
-                _render_stats_norm_block(
-                    bloc["texte"],
-                    bloc["df_conn"],
-                    bloc["df_marq"],
-                    bloc["df_mem"],
-                    bloc["df_consq"],
-                    bloc["df_causes"],
-                    bloc["df_tensions"],
-                    heading=bloc["heading"],
-                    heading_color=couleurs_stats[bloc_idx % len(couleurs_stats)],
-                )
+    for bloc_idx, bloc in enumerate(blocs_stats):
+        _render_stats_norm_block(
+            bloc["texte"],
+            bloc["df_conn"],
+            bloc["df_marq"],
+            bloc["df_mem"],
+            bloc["df_consq"],
+            bloc["df_causes"],
+            bloc["df_tensions"],
+            heading=bloc["heading"],
+            heading_color=couleurs_stats[bloc_idx % len(couleurs_stats)],
+            sections=["reperes", "connecteurs"],
+        )
 
     st.markdown("### Analyses par modalité sélectionnée")
     for idx, ligne in df_selection.iterrows():
