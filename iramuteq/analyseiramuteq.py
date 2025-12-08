@@ -58,6 +58,15 @@ def _charger_connecteurs_iramuteq(dictionnaires_dir: Path) -> Dict[str, str]:
     }
 
 
+def _limiter_nb_mots(texte: str, nb_mots: int) -> str:
+    """Retourne le texte limité au nombre de mots souhaité."""
+
+    mots = str(texte).split()
+    if nb_mots <= 0 or not mots:
+        return ""
+    return " ".join(mots[:nb_mots])
+
+
 def render_corpus_iramuteq_tab(
     df_modalites: pd.DataFrame,
     dictionnaires_dir: Path,
@@ -250,6 +259,111 @@ def render_corpus_iramuteq_tab(
             y="frequence",
             color="type",
         )
+
+    st.markdown("### Analyse comparative par variable / modalité (texte normalisé)")
+
+    df_variable = df_modalites[df_modalites["variable"] == variable_selectionnee]
+    if df_variable.empty:
+        st.info("Aucune modalité disponible pour la variable sélectionnée.")
+        return
+
+    df_variable = df_variable.copy()
+    df_variable["texte_normalise"] = (
+        df_variable["texte"].fillna("").apply(lambda t: normaliser_espace(str(t)))
+    )
+
+    st.markdown("**Normalisation des textes (nombre de mots analysés)**")
+    nb_mots_normalisation = st.number_input(
+        "Nombre de mots à conserver pour l'analyse comparative (par modalité)",
+        min_value=50,
+        max_value=5000,
+        value=1000,
+        step=50,
+    )
+
+    df_variable["texte_normalise_limite"] = df_variable["texte_normalise"].apply(
+        lambda t: _limiter_nb_mots(t, int(nb_mots_normalisation))
+    )
+
+    df_comparatif = (
+        df_variable.groupby(["variable", "modalite"], as_index=False)
+        .agg(
+            {
+                "texte_normalise": lambda s: " \n".join(
+                    [v for v in s.tolist() if str(v).strip()]
+                ),
+                "texte_normalise_limite": lambda s: " \n".join(
+                    [v for v in s.tolist() if str(v).strip()]
+                ),
+            }
+        )
+        .reset_index(drop=True)
+    )
+
+    if df_comparatif.empty:
+        st.info("Impossible de constituer un tableau comparatif des textes normalisés.")
+        return
+
+    st.markdown(
+        "**Textes concaténés et normalisés par modalité**\n"
+        "(texte tronqué au nombre de mots choisi pour rendre les statistiques comparables)"
+    )
+    st.dataframe(df_comparatif, use_container_width=True)
+
+    modalite_compare = st.selectbox(
+        "Choisir une modalité à analyser avec les opérateurs logiques",
+        options=df_comparatif["modalite"].tolist(),
+    )
+
+    texte_modalite_compare = " ".join(
+        df_comparatif[df_comparatif["modalite"] == modalite_compare][
+            "texte_normalise_limite"
+        ].tolist()
+    )
+
+    st.markdown(
+        "**Texte normalisé analysé** (tronqué à "
+        f"{int(nb_mots_normalisation)} mot(s) pour harmoniser les statistiques)"
+    )
+    st.text_area(
+        "texte_modalite_compare",
+        texte_modalite_compare,
+        height=200,
+        key=f"txt_modalite_compare_{modalite_compare}",
+        label_visibility="collapsed",
+    )
+
+    detections_modalite_compare = preparer_detections_fn(
+        texte_modalite_compare,
+        use_regex_cc,
+        dico_connecteurs=dico_connecteurs_iramuteq,
+        dico_marqueurs={},
+        dico_memoires={},
+        dico_consq={},
+        dico_causes={},
+        dico_tensions={},
+    )
+
+    render_analyses_tab(
+        f"Analyse comparative : {variable_selectionnee} / {modalite_compare}",
+        texte_modalite_compare,
+        detections_modalite_compare,
+        use_regex_cc=use_regex_cc,
+        hidden_sections={
+            "marqueurs",
+            "tensions_semantiques",
+            "regex_consequence",
+            "regex_cause",
+            "memoires",
+        },
+        dico_connecteurs=dico_connecteurs_iramuteq,
+        dico_marqueurs={},
+        dico_memoires={},
+        dico_consq={},
+        dico_causes={},
+        dico_tensions={},
+        key_prefix="iramuteq_compare_",
+    )
 
     render_analyses_tab(
         "Corpus IRaMuTeQ (modalités sélectionnées)",
