@@ -168,8 +168,6 @@ def _render_stats_norm_block(
     df_tensions: pd.DataFrame | None,
     heading: str,
     heading_color: str,
-    *,
-    sections: list[str] | None = None,
 ) -> None:
     """Affiche les statistiques pour un discours donné."""
 
@@ -229,17 +227,20 @@ def _render_stats_norm_block(
     def pretty_label(categorie: str) -> str:
         return categorie.replace("_", " ")
 
-    sections_config = [
+    sections: list[tuple[str, list[RatioResult]]] = []
+
+    sections.append(
         (
-            "reperes",
             "Repères conditionnels",
             [
                 RatioResult("Occurrences de « si »", nb_si, ratio_si),
                 RatioResult("Schémas ‘si … alors’", nb_schemas, ratio_schema),
             ],
-        ),
+        )
+    )
+
+    sections.append(
         (
-            "connecteurs",
             "Connecteurs logiques",
             _resultats_par_categorie(
                 serie_connecteurs,
@@ -248,9 +249,11 @@ def _render_stats_norm_block(
                 ajouter_total=True,
                 format_categorie=pretty_label,
             ),
-        ),
+        )
+    )
+
+    sections.append(
         (
-            "normatifs",
             "Marqueurs normatifs",
             _resultats_par_categorie(
                 serie_normatifs,
@@ -259,9 +262,11 @@ def _render_stats_norm_block(
                 ajouter_total=True,
                 format_categorie=pretty_label,
             ),
-        ),
+        )
+    )
+
+    sections.append(
         (
-            "memoire",
             "Marqueurs mémoire",
             _resultats_par_categorie(
                 serie_memoires,
@@ -270,9 +275,11 @@ def _render_stats_norm_block(
                 ajouter_total=True,
                 format_categorie=pretty_label,
             ),
-        ),
+        )
+    )
+
+    sections.append(
         (
-            "consequence",
             "Déclencheurs de conséquence",
             _resultats_par_categorie(
                 serie_consq,
@@ -281,9 +288,11 @@ def _render_stats_norm_block(
                 ajouter_total=True,
                 format_categorie=pretty_label,
             ),
-        ),
+        )
+    )
+
+    sections.append(
         (
-            "cause",
             "Déclencheurs de cause",
             _resultats_par_categorie(
                 serie_causes,
@@ -292,9 +301,11 @@ def _render_stats_norm_block(
                 ajouter_total=True,
                 format_categorie=pretty_label,
             ),
-        ),
+        )
+    )
+
+    sections.append(
         (
-            "tensions",
             "Tensions sémantiques",
             _resultats_par_categorie(
                 serie_tensions,
@@ -303,12 +314,10 @@ def _render_stats_norm_block(
                 ajouter_total=True,
                 format_categorie=pretty_label,
             ),
-        ),
-    ]
+        )
+    )
 
-    for identifiant, titre, resultats in sections_config:
-        if sections is not None and identifiant not in sections:
-            continue
+    for titre, resultats in sections:
         st.markdown(
             f'<span style="color:{couleur_titre}; font-weight:700; font-size:1.2rem;">{titre}</span>',
             unsafe_allow_html=True,
