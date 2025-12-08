@@ -1019,7 +1019,7 @@ libelle_discours_2 = (
         "Storytelling",
         "zeroclassification",
         "Import IRaMuTeQ",
-        "corpusiramuteq",
+        "analyse corp ira",
     ]
 )
 
