@@ -162,7 +162,7 @@ def render_corpus_iramuteq_tab(
     st.dataframe(df_selection, use_container_width=True)
 
     st.markdown("### Analyses par modalité sélectionnée")
-    for _, ligne in df_selection.iterrows():
+    for idx, ligne in df_selection.iterrows():
         modalite_courante = str(ligne.get("modalite", "")).strip()
         texte_modalite = str(ligne.get("texte", ""))
         detections_modalite = preparer_detections_fn(
@@ -184,7 +184,7 @@ def render_corpus_iramuteq_tab(
                 "texte_modalite",
                 texte_modalite,
                 height=200,
-                key=f"txt_modalite_{modalite_courante}",
+                key=f"txt_modalite_{idx}_{modalite_courante}",
                 label_visibility="collapsed",
             )
 
@@ -195,7 +195,7 @@ def render_corpus_iramuteq_tab(
             show_codes = st.checkbox(
                 "Afficher les codes des connecteurs (cause, conséquence, obligation…)",
                 True,
-                key=f"show_codes_{modalite_courante}",
+                key=f"show_codes_{idx}_{modalite_courante}",
             )
 
             st.markdown("**Texte annoté (HTML)**")
