@@ -33,44 +33,69 @@ def extraire_variable_et_modalite(nom_balise: str) -> Dict[str, str]:
 def segmenter_corpus_par_modalite(texte_corpus: str) -> pd.DataFrame:
     """Segmente un corpus IRaMuTeQ en DataFrame variable / modalité / texte.
 
-    Le format attendu repose sur des blocs introduits par une ligne "****" puis
-    des lignes de modalités commençant par "*" (par exemple "*variable_modalite").
-    L'ancien format "**** *variable_modalite" reste pris en charge. Chaque
-    modalité regroupe le texte jusqu'à la prochaine modalité ou balise "****".
+    Le format attendu repose sur des blocs introduits par une ligne "****" (avec
+    ou sans balises sur la même ligne) suivie de balises de modalité commençant
+    par "*" ou "$" (par exemple "*variable_modalite"). Chaque balise
+    rencontrée pour un bloc est associée au texte qui suit jusqu'au prochain
+    séparateur "****".
     """
+
+    def _extraire_balises_ligne(ligne: str) -> List[str]:
+        if not ligne:
+            return []
+        tokens = re.findall(r"[\*\$][^\s]+", ligne.strip())
+        return [tok for tok in tokens if not tok.startswith("****")]
+
+    def _ajouter_segments(segments: List[dict], balises: List[str], contenu: List[str]):
+        texte = "\n".join(contenu).strip()
+        if not texte:
+            return
+
+        if not balises:
+            segments.append(
+                {"variable": "", "modalite": "", "texte": texte, "balise": ""}
+            )
+            return
+
+        for balise in balises:
+            infos = extraire_variable_et_modalite(balise)
+            variable = infos.get("variable", "")
+            modalite = infos.get("modalite", "")
+            if not variable and modalite.lower() == "model":
+                continue
+            if variable or modalite:
+                segments.append(
+                    {
+                        "variable": variable,
+                        "modalite": modalite,
+                        "texte": texte,
+                        "balise": balise.strip(),
+                    }
+                )
 
     if not texte_corpus:
         return pd.DataFrame(columns=["variable", "modalite", "texte", "balise"])
 
-    motif_balises = re.compile(
-        r"^\s*(?P<limite>\*{4}\s*$)|^\s*(?P<balise>[\*\$].+)$", re.MULTILINE
-    )
     segments: List[dict] = []
+    balises_courantes: List[str] = []
+    contenu_courant: List[str] = []
 
-    balises = list(motif_balises.finditer(texte_corpus))
-    for idx, match in enumerate(balises):
-        balise_modalite = match.group("balise")
-        if not balise_modalite:
-            continue  # Ligne "****" : on avance jusqu'à la prochaine balise utile
+    for ligne in texte_corpus.splitlines():
+        ligne_strip = ligne.strip()
 
-        balise_modalite = balise_modalite.strip()
-
-        debut_contenu = match.end()
-        fin_contenu = balises[idx + 1].start() if idx + 1 < len(balises) else len(texte_corpus)
-        contenu = texte_corpus[debut_contenu:fin_contenu].strip()
-
-        infos_balise = extraire_variable_et_modalite(balise_modalite)
-        if not infos_balise.get("variable") and infos_balise.get("modalite", "").lower() == "model":
+        if ligne_strip.startswith("****"):
+            _ajouter_segments(segments, balises_courantes, contenu_courant)
+            balises_courantes = _extraire_balises_ligne(ligne_strip)
+            contenu_courant = []
             continue
-        if infos_balise.get("variable") or infos_balise.get("modalite"):
-            segments.append(
-                {
-                    "variable": infos_balise.get("variable", ""),
-                    "modalite": infos_balise.get("modalite", ""),
-                    "texte": contenu,
-                    "balise": balise_modalite.strip(),
-                }
-            )
+
+        if ligne_strip.startswith("*") or ligne_strip.startswith("$"):
+            balises_courantes.extend(_extraire_balises_ligne(ligne_strip))
+            continue
+
+        contenu_courant.append(ligne)
+
+    _ajouter_segments(segments, balises_courantes, contenu_courant)
 
     return pd.DataFrame(segments, columns=["variable", "modalite", "texte", "balise"])
 
