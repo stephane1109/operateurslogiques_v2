@@ -56,6 +56,8 @@ def segmenter_corpus_par_modalite(texte_corpus: str) -> pd.DataFrame:
         contenu = texte_corpus[debut_contenu:fin_contenu].strip()
 
         infos_balise = extraire_variable_et_modalite(balise_modalite)
+        if not infos_balise.get("variable") and infos_balise.get("modalite", "").lower() == "model":
+            continue
         if infos_balise.get("variable") or infos_balise.get("modalite"):
             segments.append(
                 {

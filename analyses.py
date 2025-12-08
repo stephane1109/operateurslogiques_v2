@@ -2,7 +2,9 @@
 
 from typing import Any, Dict, List, Optional, Set, Tuple
 import html
+import io
 import re
+import zipfile
 
 import pandas as pd
 import streamlit as st
@@ -271,6 +273,41 @@ def html_autonome(fragment_html: str) -> str:
     )
 
 
+def pack_analyses_zip(
+    fragment_html: str,
+    hidden_sections: Set[str],
+    *,
+    use_regex_cc: bool,
+    dico_tensions: Dict[str, str],
+    df_conn: pd.DataFrame,
+    df_marq: pd.DataFrame,
+    df_memoires: pd.DataFrame,
+    df_consq_lex: pd.DataFrame,
+    df_causes_lex: pd.DataFrame,
+    df_tensions: pd.DataFrame,
+) -> bytes:
+    """Construit une archive ZIP contenant toutes les analyses disponibles."""
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        if not df_conn.empty:
+            zf.writestr("occurrences_connecteurs_logiques.csv", df_conn.to_csv(index=False))
+        if "marqueurs" not in hidden_sections and not df_marq.empty:
+            zf.writestr("occurrences_marqueurs.csv", df_marq.to_csv(index=False))
+        if "memoires" not in hidden_sections and not df_memoires.empty:
+            zf.writestr("occurrences_memoires.csv", df_memoires.to_csv(index=False))
+        if "regex_consequence" not in hidden_sections and use_regex_cc and not df_consq_lex.empty:
+            zf.writestr("occurrences_consequences.csv", df_consq_lex.to_csv(index=False))
+        if "regex_cause" not in hidden_sections and use_regex_cc and not df_causes_lex.empty:
+            zf.writestr("occurrences_causes.csv", df_causes_lex.to_csv(index=False))
+        if "tensions_semantiques" not in hidden_sections and dico_tensions and not df_tensions.empty:
+            zf.writestr("tensions_semantiques.csv", df_tensions.to_csv(index=False))
+
+        zf.writestr("texte_annote.html", html_autonome(fragment_html))
+
+    return buffer.getvalue()
+
+
 def render_detection_section(
     texte_source: str,
     detections: Dict[str, pd.DataFrame],
@@ -531,6 +568,26 @@ def render_detection_section(
         file_name="texte_annote.html",
         mime="text/html",
         key=f"{key_prefix}dl_html_annote",
+    )
+
+    archive_zip = pack_analyses_zip(
+        frag,
+        hidden_sections,
+        use_regex_cc=use_regex_cc,
+        dico_tensions=dico_tensions,
+        df_conn=df_conn,
+        df_marq=df_marq,
+        df_memoires=df_memoires,
+        df_consq_lex=df_consq_lex,
+        df_causes_lex=df_causes_lex,
+        df_tensions=df_tensions,
+    )
+    st.download_button(
+        "Télécharger toutes les analyses (ZIP)",
+        data=archive_zip,
+        file_name="analyses_completes.zip",
+        mime="application/zip",
+        key=f"{key_prefix}dl_all_zip",
     )
 
 
