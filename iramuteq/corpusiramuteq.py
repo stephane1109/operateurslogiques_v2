@@ -12,7 +12,7 @@ def nettoyer_nom_modalite(modalite_brute: str) -> str:
     """Nettoie une modalité en supprimant les marqueurs et espaces superflus."""
     if modalite_brute is None:
         return ""
-    return modalite_brute.strip().strip("*_ ")
+    return modalite_brute.strip().strip("*_ $")
 
 
 def extraire_variable_et_modalite(nom_balise: str) -> Dict[str, str]:
@@ -42,7 +42,9 @@ def segmenter_corpus_par_modalite(texte_corpus: str) -> pd.DataFrame:
     if not texte_corpus:
         return pd.DataFrame(columns=["variable", "modalite", "texte", "balise"])
 
-    motif_balises = re.compile(r"^(?P<limite>\*{4}\s*$)|^(?P<balise>\*.+)$", re.MULTILINE)
+    motif_balises = re.compile(
+        r"^(?P<limite>\*{4}\s*$)|^(?P<balise>[\*\$].+)$", re.MULTILINE
+    )
     segments: List[dict] = []
 
     balises = list(motif_balises.finditer(texte_corpus))
