@@ -169,11 +169,11 @@ def render_corpus_iramuteq_tab(
                 "heading": f"{variable_selectionnee} — {modalite_courante}",
                 "texte": texte_modalite,
                 "df_conn": detections_stats.get("df_conn", pd.DataFrame()),
-                "df_marq": detections_stats.get("df_marq", pd.DataFrame()),
-                "df_mem": detections_stats.get("df_memoires", pd.DataFrame()),
-                "df_consq": detections_stats.get("df_consq_lex", pd.DataFrame()),
-                "df_causes": detections_stats.get("df_causes_lex", pd.DataFrame()),
-                "df_tensions": detections_stats.get("df_tensions", pd.DataFrame()),
+                "df_marq": pd.DataFrame(),
+                "df_mem": pd.DataFrame(),
+                "df_consq": pd.DataFrame(),
+                "df_causes": pd.DataFrame(),
+                "df_tensions": pd.DataFrame(),
             }
         )
 
