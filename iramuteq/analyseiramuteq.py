@@ -105,11 +105,16 @@ def render_corpus_iramuteq_tab(
     if not variables_disponibles:
         variables_disponibles = ["Corpus"]
 
+    options_variables = ["(Choisir une variable)"] + variables_disponibles
     variable_selectionnee = st.selectbox(
         "Choisir une variable",
-        options=variables_disponibles,
+        options=options_variables,
         index=0,
     )
+
+    if variable_selectionnee == "(Choisir une variable)":
+        st.info("Sélectionnez une variable pour afficher les modalités disponibles.")
+        return
 
     modalites_disponibles = sorted(
         [
@@ -125,11 +130,12 @@ def render_corpus_iramuteq_tab(
     selection_modalites = st.multiselect(
         "Choisir une ou plusieurs modalités à analyser",
         options=modalites_disponibles,
-        default=modalites_disponibles,
+        default=[],
     )
 
     if not selection_modalites:
-        selection_modalites = modalites_disponibles
+        st.warning("Aucune modalité sélectionnée pour l'analyse.")
+        return
 
     st.markdown(f"**Variable sélectionnée :** {variable_selectionnee}  ")
     st.markdown(
