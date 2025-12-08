@@ -202,6 +202,7 @@ def render_normalisation_corpus(
         heading_discours_2=f"{variable_selectionnee} — sélection",
         couleur_discours_1="#c00000",
         couleur_discours_2="#1f4e79",
+        sections=["reperes", "connecteurs"],
     )
 
     st.markdown("**Connecteurs logiques — corpus normalisé (sélection)**")
