@@ -62,14 +62,8 @@ def render_normalisation_corpus(
         df_variable["texte"].fillna("").apply(lambda t: normaliser_espace(str(t)))
     )
 
-    st.markdown("**Normalisation des textes (nombre de mots analysés)**")
-    nb_mots_normalisation = st.number_input(
-        "Nombre de mots à conserver pour l'analyse comparative (par modalité)",
-        min_value=50,
-        max_value=5000,
-        value=1000,
-        step=50,
-    )
+    st.markdown("**Normalisation des textes (1000 mots analysés)**")
+    nb_mots_normalisation = 1000
 
     df_variable["texte_normalise_limite"] = df_variable["texte_normalise"].apply(
         lambda t: limiter_nb_mots(t, int(nb_mots_normalisation))
@@ -94,7 +88,7 @@ def render_normalisation_corpus(
 
     st.markdown(
         "**Textes concaténés et normalisés par modalité**\n"
-        "(texte tronqué au nombre de mots choisi pour rendre les statistiques comparables)"
+        "(texte tronqué à 1000 mots pour rendre les statistiques comparables)"
     )
     st.dataframe(df_comparatif, use_container_width=True)
 
