@@ -282,7 +282,7 @@ def render_corpus_iramuteq_tab(
         )
 
     render_normalisation_corpus(
-        df_modalites,
+        df_selection,
         variable_selectionnee,
         texte_modalites,
         use_regex_cc,
