@@ -161,27 +161,6 @@ def render_normalisation_corpus(
             color="type",
         )
 
-    render_analyses_tab(
-        f"Analyse comparative : {variable_selectionnee} / {modalite_compare}",
-        texte_modalite_compare,
-        detections_modalite_compare,
-        use_regex_cc=use_regex_cc,
-        hidden_sections={
-            "marqueurs",
-            "tensions_semantiques",
-            "regex_consequence",
-            "regex_cause",
-            "memoires",
-        },
-        dico_connecteurs=dico_connecteurs_iramuteq,
-        dico_marqueurs={},
-        dico_memoires={},
-        dico_consq={},
-        dico_causes={},
-        dico_tensions={},
-        key_prefix="iramuteq_compare_",
-    )
-
     st.markdown("**Statistiques normalisées sur le texte normalisé**")
     render_stats_norm_tab(
         texte_modalite_compare,
