@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Callable, Dict, Optional
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -130,12 +131,43 @@ def render_normalisation_corpus(
         df_freq_comparatif = pd.concat(frequences_modalites, ignore_index=True)
         st.markdown("**Fréquences comparatives des connecteurs logiques (texte normalisé)**")
         st.dataframe(df_freq_comparatif, use_container_width=True)
-        st.bar_chart(
-            df_freq_comparatif,
-            x="variable_modalite",
-            y="frequence",
-            color="categorie",
+
+        chart_barres = (
+            alt.Chart(df_freq_comparatif)
+            .mark_bar()
+            .encode(
+                x=alt.X("modalite:N", title="Modalité"),
+                y=alt.Y("frequence:Q", title="Fréquence"),
+                color=alt.Color("categorie:N", title="Catégorie"),
+                column=alt.Column("variable:N", title="Variable"),
+                tooltip=["variable", "modalite", "categorie", "frequence"],
+            )
+            .resolve_scale(y="independent")
         )
+        st.altair_chart(chart_barres, use_container_width=True)
+
+        df_freq_par_variable = (
+            df_freq_comparatif.groupby(["variable", "categorie"], as_index=False)[
+                "frequence"
+            ]
+            .sum()
+            .sort_values(["variable", "categorie"])
+        )
+        if not df_freq_par_variable.empty:
+            st.markdown(
+                "**Évolution normalisée des fréquences par variable (comparaison en courbes)**"
+            )
+            chart_courbes = (
+                alt.Chart(df_freq_par_variable)
+                .mark_line(point=True)
+                .encode(
+                    x=alt.X("categorie:N", title="Catégorie"),
+                    y=alt.Y("frequence:Q", title="Fréquence normalisée"),
+                    color=alt.Color("variable:N", title="Variable"),
+                    tooltip=["variable", "categorie", "frequence"],
+                )
+            )
+            st.altair_chart(chart_courbes, use_container_width=True)
     else:
         st.info("Aucun connecteur logique détecté dans les modalités normalisées sélectionnées.")
 
