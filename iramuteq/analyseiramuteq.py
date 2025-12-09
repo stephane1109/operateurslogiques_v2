@@ -235,31 +235,6 @@ def render_corpus_iramuteq_tab(
         texte_modalites = fusionner_textes_par_variable(df_modalites, variable_selectionnee)
     else:
         texte_modalites = fusionner_textes_modalites(df_selection)
-    st.markdown("### Texte combiné des modalités sélectionnées")
-    st.markdown(
-        f"Longueur du texte combiné : {len(texte_modalites)} caractères pour {len(df_selection)} segment(s)"
-    )
-
-    detections_modalites = preparer_detections_fn(
-        texte_modalites,
-        use_regex_cc,
-        dico_connecteurs=dico_connecteurs_iramuteq,
-        dico_marqueurs={},
-    )
-    detections_modalites = {"df_conn": detections_modalites.get("df_conn", pd.DataFrame())}
-    freq_selection = frequences_marqueurs_par_modalite(detections_modalites)
-    freq_selection = filtrer_freq_connecteurs(freq_selection)
-    st.markdown("**Fréquences globales des marqueurs (sélection)**")
-    if freq_selection.empty:
-        st.info("Aucun marqueur logique détecté dans la sélection.")
-    else:
-        st.dataframe(freq_selection, use_container_width=True)
-        st.bar_chart(
-            freq_selection,
-            x="categorie",
-            y="frequence",
-            color="type",
-        )
 
     render_normalisation_corpus(
         df_selection,
