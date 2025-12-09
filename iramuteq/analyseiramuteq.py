@@ -154,11 +154,15 @@ def render_corpus_iramuteq_tab(
             dico_marqueurs={},
         )
         detections_stats = {"df_conn": detections_stats.get("df_conn", pd.DataFrame())}
+        freq_modalite = frequences_marqueurs_par_modalite(detections_stats)
+        freq_modalite = filtrer_freq_connecteurs(freq_modalite)
         blocs_stats.append(
             {
                 "heading": f"{variable_selectionnee} — {modalite_courante}",
                 "texte": texte_modalite,
+                "modalite": modalite_courante,
                 "df_conn": detections_stats.get("df_conn", pd.DataFrame()),
+                "freq_modalite": freq_modalite,
             }
         )
 
@@ -181,27 +185,14 @@ def render_corpus_iramuteq_tab(
             sections=["reperes", "connecteurs"],
         )
 
-    st.markdown("### Analyses par modalité sélectionnée")
-    for idx, ligne in df_selection.iterrows():
-        modalite_courante = str(ligne.get("modalite", "")).strip()
-        texte_modalite = str(ligne.get("texte", ""))
-        detections_modalite = preparer_detections_fn(
-            texte_modalite,
-            use_regex_cc,
-            dico_connecteurs=dico_connecteurs_iramuteq,
-            dico_marqueurs={},
-        )
-        detections_modalite = {"df_conn": detections_modalite.get("df_conn", pd.DataFrame())}
-        freq_modalite = frequences_marqueurs_par_modalite(detections_modalite)
-        freq_modalite = filtrer_freq_connecteurs(freq_modalite)
-
-        with st.expander(f"Analyse : {modalite_courante}", expanded=False):
+        st.markdown("### Analyses par modalité sélectionnée")
+        with st.expander(f"Analyse : {bloc['modalite']}", expanded=False):
             st.markdown("**Paramètres de rendu**")
             st.caption("Les options ci-dessous influent sur le rendu HTML (badges).")
             show_codes = st.checkbox(
                 "Afficher les codes des connecteurs (cause, conséquence, obligation…)",
                 True,
-                key=f"show_codes_{idx}_{modalite_courante}",
+                key=f"show_codes_{bloc_idx}_{bloc['modalite']}",
             )
 
             st.markdown("**Texte annoté (HTML)**")
@@ -211,7 +202,7 @@ def render_corpus_iramuteq_tab(
             show_consequences = use_regex_cc and show_codes
             show_causes = use_regex_cc and show_codes
             texte_annote = html_annote(
-                texte_modalite,
+                bloc["texte"],
                 dico_connecteurs_iramuteq,
                 {},
                 {},
@@ -229,12 +220,12 @@ def render_corpus_iramuteq_tab(
             st.markdown(texte_annote, unsafe_allow_html=True)
 
             st.markdown("**Fréquences des marqueurs logiques**")
-            if freq_modalite.empty:
+            if bloc["freq_modalite"].empty:
                 st.info("Aucun marqueur logique détecté pour cette modalité.")
             else:
-                st.dataframe(freq_modalite, use_container_width=True)
+                st.dataframe(bloc["freq_modalite"], use_container_width=True)
                 st.bar_chart(
-                    freq_modalite,
+                    bloc["freq_modalite"],
                     x="categorie",
                     y="frequence",
                     color="type",
