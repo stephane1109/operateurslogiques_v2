@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Callable, Dict
+from typing import Callable
 
 import pandas as pd
 import streamlit as st
@@ -12,7 +12,6 @@ import streamlit as st
 from analyses import (
     COULEURS_BADGES,
     COULEURS_MARQUEURS,
-    COULEURS_TENSIONS,
     css_badges,
     html_annote,
     render_analyses_tab,
@@ -32,7 +31,7 @@ from stats_norm import _render_stats_norm_block, render_stats_norm_tab
 from text_utils import normaliser_espace
 
 
-def _charger_connecteurs_iramuteq(dictionnaires_dir: Path) -> Dict[str, str]:
+def _charger_connecteurs_iramuteq(dictionnaires_dir: Path) -> dict[str, str]:
     """Charge le dictionnaire spécifique aux analyses IRaMuTeQ."""
 
     chemin = dictionnaires_dir / "connecteursiramuteq.json"
@@ -68,13 +67,7 @@ def render_corpus_iramuteq_tab(
     df_modalites: pd.DataFrame,
     dictionnaires_dir: Path,
     use_regex_cc: bool,
-    preparer_detections_fn: Callable[..., Dict[str, pd.DataFrame]],
-    *,
-    dico_marqueurs: Dict[str, str],
-    dico_memoires: Dict[str, str],
-    dico_consq: Dict[str, str],
-    dico_causes: Dict[str, str],
-    dico_tensions: Dict[str, str],
+    preparer_detections_fn: Callable[..., dict[str, pd.DataFrame]],
 ) -> None:
     """Affiche les analyses statistiques pour les corpus IRaMuTeQ."""
 
@@ -159,21 +152,13 @@ def render_corpus_iramuteq_tab(
             use_regex_cc,
             dico_connecteurs=dico_connecteurs_iramuteq,
             dico_marqueurs={},
-            dico_memoires={},
-            dico_consq={},
-            dico_causes={},
-            dico_tensions={},
         )
+        detections_stats = {"df_conn": detections_stats.get("df_conn", pd.DataFrame())}
         blocs_stats.append(
             {
                 "heading": f"{variable_selectionnee} — {modalite_courante}",
                 "texte": texte_modalite,
                 "df_conn": detections_stats.get("df_conn", pd.DataFrame()),
-                "df_marq": pd.DataFrame(),
-                "df_mem": pd.DataFrame(),
-                "df_consq": pd.DataFrame(),
-                "df_causes": pd.DataFrame(),
-                "df_tensions": pd.DataFrame(),
             }
         )
 
@@ -186,11 +171,11 @@ def render_corpus_iramuteq_tab(
         _render_stats_norm_block(
             bloc["texte"],
             bloc["df_conn"],
-            bloc["df_marq"],
-            bloc["df_mem"],
-            bloc["df_consq"],
-            bloc["df_causes"],
-            bloc["df_tensions"],
+            pd.DataFrame(),
+            pd.DataFrame(),
+            pd.DataFrame(),
+            pd.DataFrame(),
+            pd.DataFrame(),
             heading=bloc["heading"],
             heading_color=couleurs_stats[bloc_idx % len(couleurs_stats)],
             sections=["reperes", "connecteurs"],
@@ -205,11 +190,8 @@ def render_corpus_iramuteq_tab(
             use_regex_cc,
             dico_connecteurs=dico_connecteurs_iramuteq,
             dico_marqueurs={},
-            dico_memoires={},
-            dico_consq={},
-            dico_causes={},
-            dico_tensions={},
         )
+        detections_modalite = {"df_conn": detections_modalite.get("df_conn", pd.DataFrame())}
         freq_modalite = frequences_marqueurs_par_modalite(detections_modalite)
         freq_modalite = filtrer_freq_connecteurs(freq_modalite)
 
@@ -283,11 +265,8 @@ def render_corpus_iramuteq_tab(
         use_regex_cc,
         dico_connecteurs=dico_connecteurs_iramuteq,
         dico_marqueurs={},
-        dico_memoires={},
-        dico_consq={},
-        dico_causes={},
-        dico_tensions={},
     )
+    detections_modalites = {"df_conn": detections_modalites.get("df_conn", pd.DataFrame())}
     freq_selection = frequences_marqueurs_par_modalite(detections_modalites)
     freq_selection = filtrer_freq_connecteurs(freq_selection)
     st.markdown("**Fréquences globales des marqueurs (sélection)**")

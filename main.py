@@ -1489,11 +1489,6 @@ with tab_corpus_iramuteq:
         DICTIONNAIRES_DIR,
         use_regex_cc,
         preparer_detections,
-        dico_marqueurs=DICO_MARQUEURS,
-        dico_memoires=DICO_MEMOIRES,
-        dico_consq=DICO_CONSQS,
-        dico_causes=DICO_CAUSES,
-        dico_tensions=DICO_TENSIONS,
     )
 
 with tab_stats_norm:
