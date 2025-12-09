@@ -180,7 +180,7 @@ def _render_stats_norm_block(
     couleur_titre = _normaliser_couleur(heading_color, heading_color or "#c00000")
 
     st.markdown(
-        f'<span style="color:{couleur_titre}; font-weight:700;">{heading}</span>',
+        f'<span style="color:{couleur_titre}; font-weight:700; font-size:1.4rem;">{heading}</span>',
         unsafe_allow_html=True,
     )
 
