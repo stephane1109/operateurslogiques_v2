@@ -1,7 +1,7 @@
 """Fonctions d'analyse normalisée pour les corpus IRaMuTeQ."""
 from __future__ import annotations
 
-from typing import Callable, Dict
+from typing import Callable, Dict, Optional
 
 import pandas as pd
 import streamlit as st
@@ -40,6 +40,11 @@ def render_normalisation_corpus(
     use_regex_cc: bool,
     dico_connecteurs_iramuteq: Dict[str, str],
     preparer_detections_fn: Callable[..., Dict[str, pd.DataFrame]],
+    dico_marqueurs: Optional[Dict[str, str]] = None,
+    dico_memoires: Optional[Dict[str, str]] = None,
+    dico_consq: Optional[Dict[str, str]] = None,
+    dico_causes: Optional[Dict[str, str]] = None,
+    dico_tensions: Optional[Dict[str, str]] = None,
 ) -> None:
     """Affiche l'analyse normalisée (comparative) pour les modalités IRaMuTeQ."""
 
@@ -141,12 +146,17 @@ def render_normalisation_corpus(
             texte_modalites_normalise,
             use_regex_cc,
             dico_connecteurs=dico_connecteurs_iramuteq,
-            dico_marqueurs={},
+            dico_marqueurs=dico_marqueurs or {},
         ),
         use_regex_cc=use_regex_cc,
         hidden_sections={
             "marqueurs",
         },
         dico_connecteurs=dico_connecteurs_iramuteq,
+        dico_marqueurs=dico_marqueurs or {},
+        dico_memoires=dico_memoires or {},
+        dico_consq=dico_consq or {},
+        dico_causes=dico_causes or {},
+        dico_tensions=dico_tensions or {},
         key_prefix="iramuteq_",
     )
