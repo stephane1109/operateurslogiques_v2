@@ -196,17 +196,6 @@ def render_corpus_iramuteq_tab(
         freq_modalite = filtrer_freq_connecteurs(freq_modalite)
 
         with st.expander(f"Analyse : {modalite_courante}", expanded=False):
-            st.markdown("**Texte de la modalité**")
-            st.text_area(
-                "texte_modalite",
-                texte_modalite,
-                height=200,
-                key=f"txt_modalite_{idx}_{modalite_courante}",
-                label_visibility="collapsed",
-            )
-
-            st.markdown("**Détections et texte annoté**")
-
             st.markdown("**Paramètres de rendu**")
             st.caption("Les options ci-dessous influent sur le rendu HTML (badges).")
             show_codes = st.checkbox(
