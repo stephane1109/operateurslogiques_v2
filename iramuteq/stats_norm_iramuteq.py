@@ -124,10 +124,6 @@ def render_normalisation_corpus(
         use_regex_cc,
         dico_connecteurs=dico_connecteurs_iramuteq,
         dico_marqueurs={},
-        dico_memoires={},
-        dico_consq={},
-        dico_causes={},
-        dico_tensions={},
     )
 
     detections_modalites_normalises = preparer_detections_fn(
@@ -135,10 +131,6 @@ def render_normalisation_corpus(
         use_regex_cc,
         dico_connecteurs=dico_connecteurs_iramuteq,
         dico_marqueurs={},
-        dico_memoires={},
-        dico_consq={},
-        dico_causes={},
-        dico_tensions={},
     )
 
     freq_modalite_compare = frequences_marqueurs_par_modalite(detections_modalite_compare)
@@ -173,10 +165,6 @@ def render_normalisation_corpus(
         texte_source_2=texte_modalites_normalise,
         df_conn_2=detections_modalites_normalises.get("df_conn", pd.DataFrame()),
         df_marqueurs_2=pd.DataFrame(),
-        df_memoires_2=pd.DataFrame(),
-        df_consq_lex_2=pd.DataFrame(),
-        df_causes_lex_2=pd.DataFrame(),
-        df_tensions_2=pd.DataFrame(),
         heading_discours_1=f"{variable_selectionnee} — {modalite_compare}",
         heading_discours_2=f"{variable_selectionnee} — sélection",
         couleur_discours_1="#c00000",
@@ -203,16 +191,7 @@ def render_normalisation_corpus(
         use_regex_cc=use_regex_cc,
         hidden_sections={
             "marqueurs",
-            "tensions_semantiques",
-            "regex_consequence",
-            "regex_cause",
-            "memoires",
         },
         dico_connecteurs=dico_connecteurs_iramuteq,
-        dico_marqueurs={},
-        dico_memoires={},
-        dico_consq={},
-        dico_causes={},
-        dico_tensions={},
         key_prefix="iramuteq_",
     )
