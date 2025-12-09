@@ -146,17 +146,11 @@ def render_normalisation_corpus(
             texte_modalites_normalise,
             use_regex_cc,
             dico_connecteurs=dico_connecteurs_iramuteq,
-            dico_marqueurs=dico_marqueurs or {},
         ),
         use_regex_cc=use_regex_cc,
         hidden_sections={
             "marqueurs",
         },
         dico_connecteurs=dico_connecteurs_iramuteq,
-        dico_marqueurs=dico_marqueurs or {},
-        dico_memoires=dico_memoires or {},
-        dico_consq=dico_consq or {},
-        dico_causes=dico_causes or {},
-        dico_tensions=dico_tensions or {},
         key_prefix="iramuteq_",
     )
