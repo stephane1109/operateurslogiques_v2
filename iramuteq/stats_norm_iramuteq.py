@@ -8,7 +8,6 @@ import streamlit as st
 
 from analyses import render_analyses_tab
 from iramuteq.corpusiramuteq import frequences_marqueurs_par_modalite
-from stats_norm import render_stats_norm_tab
 from text_utils import normaliser_espace
 
 
@@ -46,12 +45,13 @@ def render_normalisation_corpus(
 
     st.markdown("### Analyse comparative par variable / modalité (texte normalisé)")
 
-    df_variable = df_modalites[df_modalites["variable"] == variable_selectionnee]
-    if df_variable.empty:
+    if df_modalites.empty:
         st.info("Aucune modalité disponible pour la variable sélectionnée.")
         return
 
-    df_variable = df_variable.copy()
+    df_variable = df_modalites.copy()
+    df_variable["variable"] = df_variable["variable"].fillna(variable_selectionnee)
+    df_variable["modalite"] = df_variable["modalite"].fillna("")
     df_variable["texte_normalise"] = (
         df_variable["texte"].fillna("").apply(lambda t: normaliser_espace(str(t)))
     )
@@ -92,102 +92,57 @@ def render_normalisation_corpus(
     )
     st.dataframe(df_comparatif, use_container_width=True)
 
-    modalite_compare = st.selectbox(
-        "Choisir une modalité à analyser avec les opérateurs logiques",
-        options=df_comparatif["modalite"].tolist(),
-    )
+    frequences_modalites = []
+    for _, ligne in df_comparatif.iterrows():
+        texte_modalite = str(ligne.get("texte_normalise_limite", ""))
+        if not texte_modalite.strip():
+            continue
 
-    texte_modalite_compare = " ".join(
-        df_comparatif[df_comparatif["modalite"] == modalite_compare][
-            "texte_normalise_limite"
-        ].tolist()
-    )
+        detections_modalite = preparer_detections_fn(
+            texte_modalite,
+            use_regex_cc,
+            dico_connecteurs=dico_connecteurs_iramuteq,
+            dico_marqueurs={},
+        )
+
+        freq_modalite = frequences_marqueurs_par_modalite(detections_modalite)
+        freq_modalite = filtrer_freq_connecteurs(freq_modalite)
+        if freq_modalite.empty:
+            continue
+
+        freq_modalite["variable"] = ligne.get("variable", "")
+        freq_modalite["modalite"] = ligne.get("modalite", "")
+        freq_modalite["variable_modalite"] = freq_modalite.apply(
+            lambda r: f"{r['variable']} — {r['modalite']}", axis=1
+        )
+        frequences_modalites.append(freq_modalite)
 
     texte_modalites_normalise = limiter_nb_mots(
         normaliser_espace(texte_modalites), int(nb_mots_normalisation)
     )
 
-    st.markdown(
-        "**Texte normalisé analysé** (tronqué à "
-        f"{int(nb_mots_normalisation)} mot(s) pour harmoniser les statistiques)"
-    )
-    st.text_area(
-        "texte_modalite_compare",
-        texte_modalite_compare,
-        height=200,
-        key=f"txt_modalite_compare_{modalite_compare}",
-        label_visibility="collapsed",
-    )
-
-    detections_modalite_compare = preparer_detections_fn(
-        texte_modalite_compare,
-        use_regex_cc,
-        dico_connecteurs=dico_connecteurs_iramuteq,
-        dico_marqueurs={},
-    )
-
-    detections_modalites_normalises = preparer_detections_fn(
-        texte_modalites_normalise,
-        use_regex_cc,
-        dico_connecteurs=dico_connecteurs_iramuteq,
-        dico_marqueurs={},
-    )
-
-    freq_modalite_compare = frequences_marqueurs_par_modalite(detections_modalite_compare)
-    freq_modalite_compare = filtrer_freq_connecteurs(freq_modalite_compare)
-
-    freq_modalites_normalise = frequences_marqueurs_par_modalite(
-        detections_modalites_normalises
-    )
-    freq_modalites_normalise = filtrer_freq_connecteurs(freq_modalites_normalise)
-
-    st.markdown("**Fréquences des connecteurs logiques (texte normalisé)**")
-    if freq_modalite_compare.empty:
-        st.info("Aucun connecteur logique détecté pour cette modalité normalisée.")
-    else:
-        st.dataframe(freq_modalite_compare, use_container_width=True)
+    if frequences_modalites:
+        df_freq_comparatif = pd.concat(frequences_modalites, ignore_index=True)
+        st.markdown("**Fréquences comparatives des connecteurs logiques (texte normalisé)**")
+        st.dataframe(df_freq_comparatif, use_container_width=True)
         st.bar_chart(
-            freq_modalite_compare,
-            x="categorie",
+            df_freq_comparatif,
+            x="variable_modalite",
             y="frequence",
-            color="type",
+            color="categorie",
         )
-
-    st.markdown("**Statistiques normalisées sur le texte normalisé**")
-    render_stats_norm_tab(
-        texte_modalite_compare,
-        detections_modalite_compare.get("df_conn", pd.DataFrame()),
-        pd.DataFrame(),
-        pd.DataFrame(),
-        pd.DataFrame(),
-        pd.DataFrame(),
-        pd.DataFrame(),
-        texte_source_2=texte_modalites_normalise,
-        df_conn_2=detections_modalites_normalises.get("df_conn", pd.DataFrame()),
-        df_marqueurs_2=pd.DataFrame(),
-        heading_discours_1=f"{variable_selectionnee} — {modalite_compare}",
-        heading_discours_2=f"{variable_selectionnee} — sélection",
-        couleur_discours_1="#c00000",
-        couleur_discours_2="#1f4e79",
-        sections=["reperes", "connecteurs"],
-    )
-
-    st.markdown("**Connecteurs logiques — corpus normalisé (sélection)**")
-    if freq_modalites_normalise.empty:
-        st.info("Aucun connecteur logique détecté dans le corpus normalisé.")
     else:
-        st.dataframe(freq_modalites_normalise, use_container_width=True)
-        st.bar_chart(
-            freq_modalites_normalise,
-            x="categorie",
-            y="frequence",
-            color="type",
-        )
+        st.info("Aucun connecteur logique détecté dans les modalités normalisées sélectionnées.")
 
     render_analyses_tab(
         "Corpus IRaMuTeQ (modalités sélectionnées)",
         texte_modalites_normalise,
-        detections_modalites_normalises,
+        preparer_detections_fn(
+            texte_modalites_normalise,
+            use_regex_cc,
+            dico_connecteurs=dico_connecteurs_iramuteq,
+            dico_marqueurs={},
+        ),
         use_regex_cc=use_regex_cc,
         hidden_sections={
             "marqueurs",
