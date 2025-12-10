@@ -62,19 +62,16 @@ def render_normalisation_corpus(
         df_variable["texte"].fillna("").apply(lambda t: normaliser_espace(str(t)))
     )
 
-    st.markdown("**Normalisation des textes (1000 mots analysés)**")
-    nb_mots_normalisation = 1000
+    st.markdown("**Normalisation des textes (analyse sur le texte complet)**")
 
-    df_variable["texte_normalise_limite"] = df_variable["texte_normalise"].apply(
-        lambda t: limiter_nb_mots(t, int(nb_mots_normalisation))
-    )
+    df_variable["texte_normalise_analyse"] = df_variable["texte_normalise"]
 
     df_comparatif = (
         df_variable.groupby(["variable", "modalite"], as_index=False)
         .agg(
             {
                 "texte_normalise": lambda s: " \n".join([v for v in s.tolist() if str(v).strip()]),
-                "texte_normalise_limite": lambda s: " \n".join(
+                "texte_normalise_analyse": lambda s: " \n".join(
                     [v for v in s.tolist() if str(v).strip()]
                 ),
             }
@@ -88,13 +85,13 @@ def render_normalisation_corpus(
 
     st.markdown(
         "**Textes concaténés et normalisés par modalité**\n"
-        "(texte tronqué à 1000 mots pour rendre les statistiques comparables)"
+        "(texte complet analysé pour chaque modalité)"
     )
     st.dataframe(df_comparatif, use_container_width=True)
 
     frequences_modalites = []
     for _, ligne in df_comparatif.iterrows():
-        texte_modalite = str(ligne.get("texte_normalise_limite", ""))
+        texte_modalite = str(ligne.get("texte_normalise_analyse", ""))
         if not texte_modalite.strip():
             continue
 
@@ -117,9 +114,7 @@ def render_normalisation_corpus(
         )
         frequences_modalites.append(freq_modalite)
 
-    texte_modalites_normalise = limiter_nb_mots(
-        normaliser_espace(texte_modalites), int(nb_mots_normalisation)
-    )
+    texte_modalites_normalise = normaliser_espace(texte_modalites)
 
     if frequences_modalites:
         df_freq_comparatif = pd.concat(frequences_modalites, ignore_index=True)
