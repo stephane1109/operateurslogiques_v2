@@ -172,6 +172,10 @@ def render_normalisation_corpus(
         use_regex_cc=use_regex_cc,
         hidden_sections={
             "marqueurs",
+            "tensions_semantiques",
+            "memoires",
+            "regex_consequence",
+            "regex_cause",
         },
         dico_connecteurs=dico_connecteurs_iramuteq,
         dico_marqueurs=dico_marqueurs or {},
