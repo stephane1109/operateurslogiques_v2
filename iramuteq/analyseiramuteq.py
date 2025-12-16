@@ -5,6 +5,7 @@ Ce module propose une vue dédiée dans Streamlit pour :
 - calculer les fréquences des connecteurs par variable/modalité ;
 - afficher un histogramme comparatif ;
 - surligner les connecteurs dans les textes agrégés.
+- cumuler plusieurs variables/modalités pour une analyse transversale.
 """
 
 from __future__ import annotations
@@ -161,29 +162,80 @@ def render_corpus_iramuteq_tab(
         st.warning("Aucune variable détectée dans le corpus.")
         return
 
-    variable_choisie = st.selectbox("Variable à analyser", variables)
-    df_var = df_modalites[df_modalites["variable"] == variable_choisie]
-
-    modalites_disponibles = sorted({m for m in df_var["modalite"].dropna() if m})
-    modalites_selectionnees = st.multiselect(
-        "Modalités à comparer",
-        modalites_disponibles,
-        default=modalites_disponibles,
+    variables_selectionnees = st.multiselect(
+        "Variables à analyser",
+        variables,
+        default=variables[:1],
     )
 
-    df_filtre = filtrer_modalites(df_modalites, modalites_selectionnees, variable=variable_choisie)
-    if df_filtre.empty:
-        st.warning("Sélectionnez au moins une modalité contenant du texte.")
+    if not variables_selectionnees:
+        st.warning("Sélectionnez au moins une variable pour lancer l'analyse.")
         return
 
+    st.caption(
+        "Choisissez librement plusieurs variables et modalités : un cumul regroupera l'ensemble des sélections."
+    )
+
+    modalites_par_variable: Dict[str, List[str]] = {}
+    for variable in variables_selectionnees:
+        df_var = df_modalites[df_modalites["variable"] == variable]
+        modalites_disponibles = sorted({m for m in df_var["modalite"].dropna() if m})
+        modalites_selection = st.multiselect(
+            f"Modalités pour {variable}",
+            modalites_disponibles,
+            default=modalites_disponibles,
+        )
+        modalites_par_variable[variable] = modalites_selection
+
+    groupes_selectionnes: List[str] = []
+    textes_cumules: List[str] = []
     detections_modalites: List[pd.DataFrame] = []
-    for modalite in modalites_selectionnees:
-        df_mod = df_filtre[df_filtre["modalite"] == modalite]
-        texte_concat = "\n\n".join(df_mod["texte"].astype(str))
-        df_conn = _detecter_connecteurs(texte_concat, dico_connecteurs)
-        if not df_conn.empty:
-            df_conn = df_conn.assign(variable=variable_choisie, modalite=modalite)
-        detections_modalites.append(df_conn)
+
+    for variable, modalites_selectionnees in modalites_par_variable.items():
+        df_filtre = filtrer_modalites(
+            df_modalites, modalites_selectionnees, variable=variable
+        )
+        if df_filtre.empty:
+            st.warning(
+                f"Aucune modalité sélectionnée avec du texte pour la variable '{variable}'."
+            )
+            continue
+
+        for modalite in modalites_selectionnees:
+            df_mod = df_filtre[df_filtre["modalite"] == modalite]
+            if df_mod.empty:
+                continue
+            texte_concat = "\n\n".join(df_mod["texte"].astype(str))
+            textes_cumules.extend(df_mod["texte"].astype(str))
+            df_conn = _detecter_connecteurs(texte_concat, dico_connecteurs)
+            if not df_conn.empty:
+                label_modalite = f"{variable} • {modalite}" if variable else modalite
+                df_conn = df_conn.assign(
+                    variable=variable,
+                    modalite=label_modalite,
+                    modalite_source=modalite,
+                )
+                if label_modalite not in groupes_selectionnes:
+                    groupes_selectionnes.append(label_modalite)
+            detections_modalites.append(df_conn)
+
+    ajouter_cumul = st.checkbox(
+        "Ajouter un cumul des variables/modalités sélectionnées",
+        value=True,
+    )
+
+    if ajouter_cumul and textes_cumules:
+        texte_total = "\n\n".join(textes_cumules)
+        df_conn_cumul = _detecter_connecteurs(texte_total, dico_connecteurs)
+        if not df_conn_cumul.empty:
+            df_conn_cumul = df_conn_cumul.assign(
+                variable="CUMUL",
+                modalite="Cumul des sélections",
+                modalite_source="",
+            )
+            detections_modalites.append(df_conn_cumul)
+            if "Cumul des sélections" not in groupes_selectionnes:
+                groupes_selectionnes.append("Cumul des sélections")
 
     df_detections = (
         pd.concat([d for d in detections_modalites if d is not None], ignore_index=True)
@@ -218,7 +270,7 @@ def render_corpus_iramuteq_tab(
         st.dataframe(df_stats, use_container_width=True)
 
     st.markdown("#### Connecteurs surlignés dans les textes")
-    for modalite in modalites_selectionnees:
+    for modalite in groupes_selectionnes:
         df_mod_dets = df_detections[df_detections["modalite"] == modalite]
         if df_mod_dets.empty:
             continue
