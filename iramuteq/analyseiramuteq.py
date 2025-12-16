@@ -13,7 +13,7 @@ from __future__ import annotations
 import html
 import json
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Tuple
 
 import altair as alt
 import pandas as pd
@@ -188,7 +188,7 @@ def render_corpus_iramuteq_tab(
         modalites_par_variable[variable] = modalites_selection
 
     groupes_selectionnes: List[str] = []
-    textes_cumules: List[str] = []
+    textes_cumules: List[Tuple[str, str, str]] = []
     detections_modalites: List[pd.DataFrame] = []
 
     for variable, modalites_selectionnees in modalites_par_variable.items():
@@ -206,7 +206,8 @@ def render_corpus_iramuteq_tab(
             if df_mod.empty:
                 continue
             texte_concat = "\n\n".join(df_mod["texte"].astype(str))
-            textes_cumules.extend(df_mod["texte"].astype(str))
+            balise_label = f"*{variable}_{modalite}".rstrip("_")
+            textes_cumules.append((balise_label, variable, texte_concat))
             df_conn = _detecter_connecteurs(texte_concat, dico_connecteurs)
             if not df_conn.empty:
                 label_modalite = f"{variable} • {modalite}" if variable else modalite
@@ -224,18 +225,29 @@ def render_corpus_iramuteq_tab(
         value=True,
     )
 
+    label_cumul = "Cumul des sélections"
+    balises_cumul: List[str] = [b for b, _, _ in textes_cumules if b]
+
+    if balises_cumul:
+        label_cumul = "Cumul : " + ", ".join(balises_cumul)
+
     if ajouter_cumul and textes_cumules:
-        texte_total = "\n\n".join(textes_cumules)
+        segments_cumules = []
+        for balise_label, variable, texte in textes_cumules:
+            if texte:
+                prefix = balise_label or variable or "Sélection"
+                segments_cumules.append(f"{prefix}\n{texte}")
+        texte_total = "\n\n".join(segments_cumules)
         df_conn_cumul = _detecter_connecteurs(texte_total, dico_connecteurs)
         if not df_conn_cumul.empty:
             df_conn_cumul = df_conn_cumul.assign(
                 variable="CUMUL",
-                modalite="Cumul des sélections",
+                modalite=label_cumul,
                 modalite_source="",
             )
             detections_modalites.append(df_conn_cumul)
-            if "Cumul des sélections" not in groupes_selectionnes:
-                groupes_selectionnes.append("Cumul des sélections")
+            if label_cumul not in groupes_selectionnes:
+                groupes_selectionnes.append(label_cumul)
 
     df_detections = (
         pd.concat([d for d in detections_modalites if d is not None], ignore_index=True)
@@ -252,6 +264,8 @@ def render_corpus_iramuteq_tab(
         return
 
     df_stats = _statistiques_par_modalite(df_detections)
+    if not df_stats.empty:
+        df_stats = df_stats[df_stats["modalite"] != label_cumul]
 
     if not df_stats.empty:
         st.markdown("#### Histogramme comparatif des connecteurs")
