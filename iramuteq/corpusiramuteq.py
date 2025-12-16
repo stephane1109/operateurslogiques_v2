@@ -170,11 +170,6 @@ def frequences_marqueurs_par_modalite(
 
     tableaux = [
         _compter(detections.get("df_conn"), "code", "Connecteur logique"),
-        _compter(detections.get("df_marq"), "categorie", "Marqueur normatif"),
-        _compter(detections.get("df_memoires"), "categorie", "Mémoire"),
-        _compter(detections.get("df_consq_lex"), "categorie", "Conséquence"),
-        _compter(detections.get("df_causes_lex"), "categorie", "Cause"),
-        _compter(detections.get("df_tensions"), "tension", "Tension sémantique"),
     ]
 
     tableaux = [t for t in tableaux if not t.empty]
