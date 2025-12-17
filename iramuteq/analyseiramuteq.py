@@ -323,13 +323,41 @@ def render_corpus_iramuteq_tab(
             .mark_bar()
             .encode(
                 x=alt.X("variable:N", title="Variable analysée"),
-                y=alt.Y("frequence:Q", title="Fréquence", stack="zero"),
+                y=alt.Y("frequence:Q", title="Fréquence"),
                 color=alt.Color("code:N", title="Connecteur logique"),
+                xOffset=alt.XOffset("code:N"),
                 tooltip=["variable", "code", "frequence"],
             )
             .properties(height=350)
         )
         st.altair_chart(chart, use_container_width=True)
+
+        st.markdown("#### Connecteurs pour la variable « modele »")
+        df_modele = df_stats[df_stats["variable"].str.lower() == "modele"].copy()
+        codes_cibles = ["CONDITION", "ALTERNATIVE", "ALORS"]
+
+        if df_modele.empty:
+            st.info("Aucune statistique disponible pour la variable \"modele\".")
+        else:
+            df_modele["code"] = df_modele["code"].astype(str).str.upper()
+            df_modele = (
+                df_modele.set_index("code")
+                .reindex(codes_cibles, fill_value=0)
+                .reset_index()[["code", "frequence"]]
+            )
+
+            chart_modele = (
+                alt.Chart(df_modele)
+                .mark_bar()
+                .encode(
+                    x=alt.X("code:N", title="Connecteur", sort=codes_cibles),
+                    y=alt.Y("frequence:Q", title="Fréquence"),
+                    color=alt.Color("code:N", title="Connecteur"),
+                    tooltip=["code", "frequence"],
+                )
+                .properties(height=250)
+            )
+            st.altair_chart(chart_modele, use_container_width=True)
         st.dataframe(df_stats, use_container_width=True)
 
     st.markdown("#### Connecteurs surlignés dans les textes")
