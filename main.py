@@ -27,15 +27,25 @@ import streamlit.runtime as runtime
 import hashlib
 from typing import List, Dict, Tuple, Any, Optional
 
+_BOOTSTRAP_ENV_VAR = "STREAMLIT_BOOTSTRAPPED"
+
 # Lorsque le script est exécuté via ``python main.py``, Streamlit passe en mode
 # "bare" et inonde les logs d'avertissements. Pour offrir la même expérience
 # qu'en déploiement (``streamlit run``) on relance automatiquement le script via
-# le CLI Streamlit quand aucun runtime n'est actif.
-if __name__ == "__main__" and not runtime.exists():
+# le CLI Streamlit quand aucun runtime n'est actif. On évite cependant les
+# boucles de relance en plaçant un marqueur d'environnement.
+if (
+    __name__ == "__main__"
+    and not runtime.exists()
+    and os.environ.get(_BOOTSTRAP_ENV_VAR) != "1"
+):
     import sys
     from streamlit.web import cli as stcli
 
-    sys.argv = ["streamlit", "run", str(Path(__file__).resolve()), *sys.argv[1:]]
+    os.environ[_BOOTSTRAP_ENV_VAR] = "1"
+    cible_script = str(Path(__file__).resolve())
+    args_supplementaires = [arg for arg in sys.argv[1:] if arg != cible_script]
+    sys.argv = ["streamlit", "run", cible_script, *args_supplementaires]
     sys.exit(stcli.main())
 
 from analyses import (
