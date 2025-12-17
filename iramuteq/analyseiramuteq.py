@@ -45,11 +45,18 @@ def _charger_connecteurs_iramuteq(dictionnaires_dir: Path) -> Dict[str, str]:
     return connecteurs
 
 
-def _detecter_connecteurs(texte: str, dico_conn: Dict[str, str]) -> pd.DataFrame:
-    """Détecte les connecteurs logiques dans un texte en utilisant le dictionnaire fourni."""
+def _detecter_connecteurs(
+    texte: str, dico_conn: Dict[str, str]
+) -> Tuple[pd.DataFrame, List[str]]:
+    """Détecte les connecteurs logiques et renvoie également les phrases normalisées."""
 
     if not texte or not dico_conn:
-        return pd.DataFrame(columns=["id_phrase", "phrase", "connecteur", "code", "position", "longueur"])
+        return (
+            pd.DataFrame(
+                columns=["id_phrase", "phrase", "connecteur", "code", "position", "longueur"]
+            ),
+            [],
+        )
 
     texte_norm = normaliser_espace(texte)
     phrases = segmenter_en_phrases(texte_norm)
@@ -75,7 +82,7 @@ def _detecter_connecteurs(texte: str, dico_conn: Dict[str, str]) -> pd.DataFrame
     if not df.empty:
         df.sort_values(by=["id_phrase", "position", "longueur"], inplace=True, kind="mergesort")
         df.reset_index(drop=True, inplace=True)
-    return df
+    return df, phrases
 
 
 def _annoter_phrase(phrase: str, occs: Iterable[dict]) -> str:
@@ -102,10 +109,12 @@ def _annoter_phrase(phrase: str, occs: Iterable[dict]) -> str:
     return "".join(morceaux)
 
 
-def _annoter_texte(df_conn: pd.DataFrame) -> str:
+def _annoter_texte(df_conn: pd.DataFrame, phrases: Iterable[str] | None = None) -> str:
     """Construit un bloc HTML annoté pour l'ensemble des phrases détectées."""
 
-    if df_conn is None or df_conn.empty:
+    phrases_list = [str(p) for p in phrases] if phrases else []
+
+    if (df_conn is None or df_conn.empty) and not phrases_list:
         return "<div class='iramuteq-texte'>(Aucun connecteur détecté)</div>"
 
     blocs: List[str] = [
@@ -117,9 +126,18 @@ def _annoter_texte(df_conn: pd.DataFrame) -> str:
         "<div class='iramuteq-texte'>",
     ]
 
-    for id_phrase, occs in df_conn.groupby("id_phrase"):
-        phrase = occs.iloc[0]["phrase"]
-        blocs.append(_annoter_phrase(str(phrase), occs.to_dict("records")))
+    if phrases_list:
+        for idx, phrase in enumerate(phrases_list, start=1):
+            occs = (
+                df_conn[df_conn["id_phrase"] == idx].to_dict("records")
+                if df_conn is not None and not df_conn.empty
+                else []
+            )
+            blocs.append(_annoter_phrase(str(phrase), occs))
+    else:
+        for id_phrase, occs in df_conn.groupby("id_phrase"):
+            phrase = occs.iloc[0]["phrase"]
+            blocs.append(_annoter_phrase(str(phrase), occs.to_dict("records")))
     blocs.append("</div>")
     return "".join(blocs)
 
@@ -212,6 +230,7 @@ def render_corpus_iramuteq_tab(
     groupes_selectionnes: List[str] = []
     textes_cumules: List[Tuple[str, str, str]] = []
     detections_modalites: List[pd.DataFrame] = []
+    phrases_par_modalite: Dict[str, List[str]] = {}
 
     for variable, modalites_selectionnees in modalites_par_variable.items():
         df_filtre = filtrer_modalites(
@@ -234,10 +253,12 @@ def render_corpus_iramuteq_tab(
             if not texte_concat:
                 continue
 
+            label_modalite = f"{variable} • {modalite}" if variable else modalite
             textes_cumules.append((balise_label, variable, texte_concat))
-            df_conn = _detecter_connecteurs(texte_concat, dico_connecteurs)
+            df_conn, phrases = _detecter_connecteurs(texte_concat, dico_connecteurs)
+            if phrases:
+                phrases_par_modalite[label_modalite] = phrases
             if not df_conn.empty:
-                label_modalite = f"{variable} • {modalite}" if variable else modalite
                 df_conn = df_conn.assign(
                     variable=variable,
                     modalite=label_modalite,
@@ -265,7 +286,9 @@ def render_corpus_iramuteq_tab(
                 prefix = balise_label or variable or "Sélection"
                 segments_cumules.append(f"{prefix}\n{texte}")
         texte_total = "\n\n".join(segments_cumules)
-        df_conn_cumul = _detecter_connecteurs(texte_total, dico_connecteurs)
+        df_conn_cumul, phrases_cumul = _detecter_connecteurs(texte_total, dico_connecteurs)
+        if phrases_cumul:
+            phrases_par_modalite[label_cumul] = phrases_cumul
         if not df_conn_cumul.empty:
             df_conn_cumul = df_conn_cumul.assign(
                 variable="CUMUL",
@@ -313,7 +336,10 @@ def render_corpus_iramuteq_tab(
     st.markdown("#### Connecteurs surlignés dans les textes")
     for modalite in groupes_selectionnes:
         df_mod_dets = df_detections[df_detections["modalite"] == modalite]
-        if df_mod_dets.empty:
+        phrases = phrases_par_modalite.get(modalite, [])
+        if df_mod_dets.empty and not phrases:
             continue
         st.markdown(f"**Modalité : {modalite}**")
-        st.markdown(_annoter_texte(df_mod_dets), unsafe_allow_html=True)
+        st.markdown(
+            _annoter_texte(df_mod_dets, phrases), unsafe_allow_html=True
+        )
