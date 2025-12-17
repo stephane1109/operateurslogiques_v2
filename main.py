@@ -812,13 +812,13 @@ def table_spacy_df(df_spacy: pd.DataFrame) -> pd.DataFrame:
 # Interface Streamlit
 # =========================
 st.set_page_config(
-    page_title="Formalisation logique du langage naturel (connecteurs : Si / Alors / Sinon / Tant que + marqueurs + causes/conséquences",
+    page_title="Approche symbolique du langage : connecteurs logiques",
     page_icon=None,
     layout="wide",
 )
 st.markdown(css_checkboxes_alignment(), unsafe_allow_html=True)
 st.title(
-    "Formalisation logique du langage naturel (connecteurs : Si / Alors / Sinon / Tant que + marqueurs + causes/conséquences"
+    "Approche symbolique du langage : connecteurs logiques"
 )
 st.caption(
     "Vous pouvez récupérer deux fichiers texte (Discours de Politique Générale de Sébastien "
