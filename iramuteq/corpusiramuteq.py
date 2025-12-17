@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 import pandas as pd
 
@@ -145,13 +145,42 @@ def fusionner_textes_modalites(df_modalites: pd.DataFrame) -> str:
     return "\n\n".join(segments_concat)
 
 
-def fusionner_textes_par_variable(df_modalites: pd.DataFrame, variable: str) -> str:
-    """Concatène tous les textes d'une variable (toutes modalités confondues)."""
+def fusionner_textes_par_variable(
+    df_modalites: pd.DataFrame,
+    variable: str,
+    modalite: Optional[str] = None,
+) -> str:
+    """Concatène les textes d'une variable et éventuellement d'une modalité donnée.
+
+    - Si ``modalite`` est fourni, seules les lignes correspondant au couple
+      variable/modalité sont conservées.
+    - Si ``variable`` suit le format ``"variable_modalite"`` (par ex. ``"modele_gpt"``),
+      la partie après le premier underscore est automatiquement utilisée comme
+      modalité pour éviter de concaténer les textes d'autres valeurs.
+    """
 
     if not variable:
         return ""
 
-    df_variable = filtrer_modalites(df_modalites, modalites=[], variable=variable)
+    variable_filtre = variable.strip()
+    modalites_filtre: List[str] = []
+
+    if modalite:
+        modalite_norm = modalite.strip()
+        if modalite_norm:
+            modalites_filtre.append(modalite_norm)
+    elif "_" in variable_filtre:
+        infos = extraire_variable_et_modalite(variable_filtre)
+        variable_filtre = infos.get("variable") or variable_filtre
+        modalite_extraite = infos.get("modalite", "")
+        if modalite_extraite:
+            modalites_filtre.append(modalite_extraite)
+
+    df_variable = filtrer_modalites(
+        df_modalites,
+        modalites=modalites_filtre,
+        variable=variable_filtre,
+    )
     return fusionner_textes_modalites(df_variable)
 
 
