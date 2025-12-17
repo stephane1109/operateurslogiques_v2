@@ -63,7 +63,6 @@ from iramuteq.corpusiramuteq import (
 from iramuteq.analyseiramuteq import render_corpus_iramuteq_tab
 from text_utils import normaliser_espace, segmenter_en_phrases
 from annotations import render_annotation_tab
-from analaysesentiments import render_zero_shot_tab
 
 BASE_DIR = Path(__file__).resolve().parent
 DICTIONNAIRES_DIR = BASE_DIR / "dictionnaires"
@@ -1002,7 +1001,6 @@ libelle_discours_2 = (
     tab_lexique,
     tab_annot,
     tab_storytelling,
-    tab_zero_shot,
     tab_import_iramuteq,
     tab_corpus_iramuteq,
 ) = st.tabs(
@@ -1017,7 +1015,6 @@ libelle_discours_2 = (
         "Lexique",
         "Annot",
         "Storytelling",
-        "zeroclassification",
         "Import IRaMuTeQ",
         "analyse corp ira",
     ]
@@ -1440,14 +1437,6 @@ with tab_storytelling:
                         data=synthese.set_index("role_actanciel"),
                         use_container_width=True,
                     )
-
-with tab_zero_shot:
-    render_zero_shot_tab(
-        texte_source,
-        texte_source_2,
-        libelle_discours_1,
-        libelle_discours_2,
-    )
 
 with tab_import_iramuteq:
     st.subheader("Importer un corpus IRaMuTeQ (.txt)")
