@@ -333,27 +333,44 @@ def render_corpus_iramuteq_tab(
         st.altair_chart(chart, use_container_width=True)
 
         st.markdown("#### Connecteurs pour la variable « modele »")
-        df_modele = df_stats[df_stats["variable"].str.lower() == "modele"].copy()
+        df_modele = df_detections[df_detections["variable"].str.lower() == "modele"].copy()
         codes_cibles = ["CONDITION", "ALTERNATIVE", "ALORS"]
 
         if df_modele.empty:
             st.info("Aucune statistique disponible pour la variable \"modele\".")
         else:
             df_modele["code"] = df_modele["code"].astype(str).str.upper()
-            df_modele = (
-                df_modele.set_index("code")
-                .reindex(codes_cibles, fill_value=0)
-                .reset_index()[["code", "frequence"]]
+            df_modele["modalite_affichee"] = df_modele["modalite_source"].where(
+                df_modele["modalite_source"].astype(str).str.strip() != "",
+                df_modele["modalite"],
+            )
+
+            modalites = sorted({m for m in df_modele["modalite_affichee"].dropna() if m})
+            if not modalites:
+                st.info("Aucune modalité disponible pour la variable \"modele\".")
+                st.dataframe(df_stats, use_container_width=True)
+                return
+            index_complet = pd.MultiIndex.from_product(
+                [modalites, codes_cibles], names=["modalite_affichee", "code"]
+            )
+
+            df_modele_freq = (
+                df_modele.groupby(["modalite_affichee", "code"])
+                .size()
+                .reindex(index_complet, fill_value=0)
+                .rename("frequence")
+                .reset_index()
             )
 
             chart_modele = (
-                alt.Chart(df_modele)
+                alt.Chart(df_modele_freq)
                 .mark_bar()
                 .encode(
-                    x=alt.X("code:N", title="Connecteur", sort=codes_cibles),
+                    x=alt.X("modalite_affichee:N", title="Modèle", sort=modalites),
                     y=alt.Y("frequence:Q", title="Fréquence"),
-                    color=alt.Color("code:N", title="Connecteur"),
-                    tooltip=["code", "frequence"],
+                    color=alt.Color("code:N", title="Connecteur", sort=codes_cibles),
+                    xOffset=alt.XOffset("code:N"),
+                    tooltip=["modalite_affichee", "code", "frequence"],
                 )
                 .properties(height=250)
             )
