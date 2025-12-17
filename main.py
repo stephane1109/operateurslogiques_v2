@@ -23,6 +23,7 @@ import copy
 from pathlib import Path
 import pandas as pd
 import streamlit as st
+import streamlit.runtime as runtime
 import hashlib
 from typing import List, Dict, Tuple, Any, Optional
 
@@ -1290,3 +1291,12 @@ with tab_discours:
                 dico_causes=DICO_CAUSES,
                 dico_tensions=DICO_TENSIONS,
             )
+
+if __name__ == "__main__" and not runtime.exists():
+    # Permet de lancer l'application avec ``python main.py`` sans entrer dans
+    # le mode "bare" de Streamlit qui provoque des reruns en boucle.
+    import sys
+    from streamlit.web import cli as stcli
+
+    sys.argv = ["streamlit", "run", str(Path(__file__).resolve()), *sys.argv[1:]]
+    sys.exit(stcli.main())
