@@ -157,6 +157,8 @@ def fusionner_textes_par_variable(
     - Si ``variable`` suit le format ``"variable_modalite"`` (par ex. ``"modele_gpt"``),
       la partie après le premier underscore est automatiquement utilisée comme
       modalité pour éviter de concaténer les textes d'autres valeurs.
+    - Lorsque l'on cible explicitement une modalité, tous les textes associés à ce
+      couple variable/modalité sont agrégés dans un seul bloc.
     """
 
     if not variable:
@@ -181,6 +183,30 @@ def fusionner_textes_par_variable(
         modalites=modalites_filtre,
         variable=variable_filtre,
     )
+
+    if modalites_filtre and not df_variable.empty:
+        segments_agreges = []
+        for (var, mod), df_group in df_variable.groupby(["variable", "modalite"], dropna=False):
+            textes = [str(t).strip() for t in df_group.get("texte", []) if str(t).strip()]
+            if not textes:
+                continue
+
+            balise = next((str(b).strip() for b in df_group.get("balise", []) if str(b).strip()), "")
+            if not balise:
+                balise = f"**** *{var}_{mod}".rstrip("_")
+
+            segments_agreges.append(
+                {
+                    "variable": var,
+                    "modalite": mod,
+                    "texte": "\n\n".join(textes),
+                    "balise": balise,
+                }
+            )
+
+        if segments_agreges:
+            df_variable = pd.DataFrame(segments_agreges)
+
     return fusionner_textes_modalites(df_variable)
 
 
