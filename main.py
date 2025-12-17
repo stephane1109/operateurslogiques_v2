@@ -23,6 +23,7 @@ import copy
 from pathlib import Path
 import pandas as pd
 import streamlit as st
+import hashlib
 from typing import List, Dict, Tuple, Any, Optional
 
 from analyses import (
@@ -702,6 +703,8 @@ if "iramuteq_df" not in st.session_state:
     )
 if "iramuteq_fichier" not in st.session_state:
     st.session_state["iramuteq_fichier"] = ""
+if "dicos_hashes" not in st.session_state:
+    st.session_state["dicos_hashes"] = {}
 
 dicos_actifs = st.session_state["dicos_actifs"]
 DICO_CONDITIONS = dicos_actifs.get("conditions", {})
@@ -925,18 +928,26 @@ with tab_dicos:
         )
         if fichier_import is not None:
             try:
-                dico_charge = parse_uploaded_dictionary(
-                    fichier_import, normalizer=normaliser_espace
-                )
-                st.session_state["dicos_actifs"][cle] = dico_charge
-                st.success(
-                    "Dictionnaire personnalisé chargé : il est maintenant utilisé pour les analyses."
-                )
-                # Le déclenchement explicite d'un rerun provoquait des boucles
-                # infinies sur Streamlit Cloud (l'uploader renvoyant toujours
-                # un fichier non vide). Le dictionnaire est déjà injecté dans
-                # st.session_state ; on laisse Streamlit rafraîchir la page
-                # normalement sans forcer un rerun manuel.
+                contenu_bytes = fichier_import.getvalue()
+                empreinte = hashlib.sha256(contenu_bytes).hexdigest()
+                hash_actuel = st.session_state["dicos_hashes"].get(cle)
+
+                if hash_actuel == empreinte:
+                    st.info("Ce dictionnaire est déjà chargé : aucune mise à jour nécessaire.")
+                else:
+                    dico_charge = parse_uploaded_dictionary(
+                        fichier_import, normalizer=normaliser_espace
+                    )
+                    st.session_state["dicos_actifs"][cle] = dico_charge
+                    st.session_state["dicos_hashes"][cle] = empreinte
+                    st.success(
+                        "Dictionnaire personnalisé chargé : il est maintenant utilisé pour les analyses."
+                    )
+                    # Le déclenchement explicite d'un rerun provoquait des boucles
+                    # infinies sur Streamlit Cloud (l'uploader renvoyant toujours
+                    # un fichier non vide). Le dictionnaire est déjà injecté dans
+                    # st.session_state ; on laisse Streamlit rafraîchir la page
+                    # normalement sans forcer un rerun manuel.
             except Exception as err:
                 st.error(f"Import impossible : {err}")
 
