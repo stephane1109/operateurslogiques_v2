@@ -46,11 +46,23 @@ def _charger_connecteurs_iramuteq(dictionnaires_dir: Path) -> Dict[str, str]:
 
 
 def _detecter_connecteurs(
-    texte: str, dico_conn: Dict[str, str]
+    texte: str,
+    dico_conn: Dict[str, str],
+    textes_bruts: Iterable[str] | None = None,
 ) -> Tuple[pd.DataFrame, List[str]]:
-    """Détecte les connecteurs logiques et renvoie également les phrases normalisées."""
+    """Détecte les connecteurs logiques et renvoie également les phrases normalisées.
 
-    if not texte or not dico_conn:
+    ``textes_bruts`` permet de préserver explicitement l'ordre et la concaténation des
+    segments (par exemple plusieurs textes pour une même modalité). Chaque segment est
+    traité séparément avant de cumuler les occurrences ; un retour à la ligne est ajouté
+    entre chaque segment pour l'affichage annoté.
+    """
+
+    sources = [str(t) for t in (textes_bruts or []) if t is not None and str(t).strip()]
+    if not sources and texte:
+        sources = [texte]
+
+    if not sources or not dico_conn:
         return (
             pd.DataFrame(
                 columns=["id_phrase", "phrase", "connecteur", "code", "position", "longueur"]
@@ -58,25 +70,35 @@ def _detecter_connecteurs(
             [],
         )
 
-    texte_norm = normaliser_espace(texte)
-    phrases = segmenter_en_phrases(texte_norm)
     motifs = construire_regex_depuis_liste(list(dico_conn.keys()))
 
     occurrences: List[dict] = []
-    for i, ph in enumerate(phrases, start=1):
-        ph_norm = normaliser_espace(ph)
-        for cle_norm, motif in motifs:
-            for m in motif.finditer(ph_norm):
-                occurrences.append(
-                    {
-                        "id_phrase": i,
-                        "phrase": ph_norm,
-                        "connecteur": cle_norm,
-                        "code": dico_conn.get(cle_norm, ""),
-                        "position": m.start(),
-                        "longueur": m.end() - m.start(),
-                    }
-                )
+    phrases: List[str] = []
+    id_phrase = 0
+
+    for idx_source, texte_source in enumerate(sources):
+        texte_norm = normaliser_espace(texte_source)
+        phrases_source = segmenter_en_phrases(texte_norm)
+
+        for ph in phrases_source:
+            ph_norm = normaliser_espace(ph)
+            id_phrase += 1
+            phrases.append(ph_norm)
+            for cle_norm, motif in motifs:
+                for m in motif.finditer(ph_norm):
+                    occurrences.append(
+                        {
+                            "id_phrase": id_phrase,
+                            "phrase": ph_norm,
+                            "connecteur": cle_norm,
+                            "code": dico_conn.get(cle_norm, ""),
+                            "position": m.start(),
+                            "longueur": m.end() - m.start(),
+                        }
+                    )
+
+        if idx_source < len(sources) - 1 and phrases:
+            phrases[-1] = phrases[-1] + "\n\n"
 
     df = pd.DataFrame(occurrences)
     if not df.empty:
@@ -293,7 +315,10 @@ def render_corpus_iramuteq_tab(
 
             label_modalite = f"{variable} • {modalite}" if variable else modalite
             textes_cumules.append((balise_label, variable, texte_concat))
-            df_conn, phrases = _detecter_connecteurs(texte_concat, dico_connecteurs)
+            textes_bruts = list(df_mod.get("texte", []))
+            df_conn, phrases = _detecter_connecteurs(
+                texte_concat, dico_connecteurs, textes_bruts=textes_bruts
+            )
             if phrases:
                 phrases_par_modalite[label_modalite] = phrases
             if not df_conn.empty:
@@ -324,7 +349,9 @@ def render_corpus_iramuteq_tab(
                 prefix = balise_label or variable or "Sélection"
                 segments_cumules.append(f"{prefix}\n{texte}")
         texte_total = "\n\n".join(segments_cumules)
-        df_conn_cumul, phrases_cumul = _detecter_connecteurs(texte_total, dico_connecteurs)
+        df_conn_cumul, phrases_cumul = _detecter_connecteurs(
+            texte_total, dico_connecteurs, textes_bruts=segments_cumules
+        )
         if phrases_cumul:
             phrases_par_modalite[label_cumul] = phrases_cumul
         if not df_conn_cumul.empty:
