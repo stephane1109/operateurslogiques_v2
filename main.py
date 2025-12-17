@@ -2,7 +2,6 @@
 # main.py — Discours → Code (SI / ALORS / SINON / TANT QUE) + Marqueurs + Causes/Conséquences
 # Ce script vise à détecter des connecteurs logiques et des marqueurs spécifiques dans le discours.
 # Il est d’autant plus pertinent lorsqu’il est appliqué à plusieurs discours d’un même auteur ou locuteur prononcés dans des contextes différents.
-# Méthodes comparées : Regex vs spaCy (modèle moyen si disponible)
 #
 # Fichiers requis dans le sous-répertoire dictionnaires/ :
 #   - conditions.json        : mapping des segments conditionnels → CONDITION / ALORS / WHILE
@@ -13,7 +12,6 @@
 #   - souvenirs.json         : déclencheurs liés à la mémoire → « MEM_* »
 #
 # Remarques :
-#   - L’extraction CAUSE→CONSEQUENCE spaCy exploite la dépendance/les ancres causales et consécutives.
 #   - Négation « ne … pouvoir … (pas/plus/jamais) » : ajustement par regex (sans options supplémentaires).
 #   - Graphes conditionnels (IF/SI) et WHILE : rendu DOT (à l’écran) + export JPEG si Graphviz est présent (binaire 'dot').
 
@@ -42,7 +40,6 @@ from import_exp import dictionnaire_to_bytes, parse_uploaded_dictionary
 
 from stats import render_stats_tab
 from stats_norm import render_stats_norm_tab
-from conditions_spacy import analyser_conditions_spacy
 from argToulmin import render_toulmin_tab
 from lexique import render_lexique_tab
 from storytelling.pynarrative import generer_storytelling_mermaid
@@ -82,48 +79,6 @@ def rendre_jpeg_depuis_dot(dot_str: str) -> bytes:
         raise RuntimeError("Graphviz (binaire 'dot') indisponible sur ce système.")
     src = graphviz.Source(dot_str)
     return src.pipe(format="jpg")
-
-# =========================
-# Chargement spaCy (modèles FR standards)
-# =========================
-SPACY_OK = False
-NLP = None
-SPACY_STATUS: List[str] = []
-try:
-    import spacy
-
-    def _charger_modele_spacy(nom_modele: str) -> Any:
-        """Tente de charger un modèle spaCy FR sans téléchargement automatique."""
-        try:
-            return spacy.load(nom_modele)
-        except OSError:
-            SPACY_STATUS.append(
-                f"Modèle spaCy '{nom_modele}' absent. Installez-le manuellement"
-                f" (ex.: python -m spacy download {nom_modele}) pour activer l'analyse NLP."
-            )
-        except Exception as err:
-            SPACY_STATUS.append(
-                f"Chargement du modèle spaCy '{nom_modele}' impossible : {err}"
-            )
-        return None
-
-    for name in ("fr_core_news_md", "fr_core_news_sm"):
-        modele = _charger_modele_spacy(name)
-        if modele is not None:
-            NLP = modele
-            SPACY_OK = True
-            SPACY_STATUS.append(f"Modèle spaCy chargé : {name}")
-            if name == "fr_core_news_sm":
-                SPACY_STATUS.append(
-                    "Le modèle moyen 'fr_core_news_md' est recommandé pour de meilleures analyses."
-                )
-            break
-    if not SPACY_OK:
-        SPACY_STATUS.append("Aucun modèle spaCy FR n'a pu être chargé.")
-except Exception as err:
-    SPACY_OK = False
-    NLP = None
-    SPACY_STATUS.append(f"Import de spaCy impossible : {err}")
 
 def _est_debut_segment(texte: str, index: int) -> bool:
     """Vérifie qu’un index correspond au début d’un segment (début ou précédé d’une ponctuation forte)."""
@@ -653,99 +608,6 @@ def graphviz_if_dot(condition: str, action_true: str, action_false: str = "") ->
     return "\n".join(lignes)
 
 # =========================
-# spaCy : extraction CAUSE → CONSÉQUENCE
-# =========================
-def _locution_match(tok, locutions_norm: set) -> bool:
-    """Teste un match simple sur le token lui-même ou sa sous-chaîne de sous-arbre."""
-    t = tok.lower_
-    if t in locutions_norm:
-        return True
-    surface = " ".join(w.lower_ for w in tok.subtree)
-    return any(loc in surface for loc in locutions_norm)
-
-def extraire_cause_consequence_spacy(texte: str, nlp, causes_lex: List[str], consequences_lex: List[str]) -> pd.DataFrame:
-    """
-    Retourne un DataFrame avec les segments CAUSE/CONSÉQUENCE extraits par analyse dépendancielle.
-    Colonnes : id_phrase, type, cause_span, consequence_span, ancre, methode, phrase
-    """
-    if not nlp:
-        return pd.DataFrame()
-
-    doc = nlp(texte)
-    causes_norm = {c.lower().strip() for c in causes_lex}
-    consq_norm = {c.lower().strip() for c in consequences_lex}
-    enregs = []
-    prev_sent_text = ""
-
-    for pid, sent in enumerate(doc.sents, start=1):
-        # Subordonnées causales (mark ∈ causes)
-        for tok in sent:
-            if tok.dep_.lower() == "mark" and _locution_match(tok, causes_norm):
-                head = tok.head
-                cause_span = doc[head.left_edge.i: head.right_edge.i+1]
-                enregs.append({
-                    "id_phrase": pid,
-                    "type": "CAUSE_SUBORDONNEE",
-                    "cause_span": cause_span.text,
-                    "consequence_span": sent.text,
-                    "ancre": tok.text,
-                    "methode": "mark→advcl",
-                    "phrase": sent.text
-                })
-
-        # Groupes prépositionnels causaux (à cause de, en raison de, du fait de, grâce à…)
-        for tok in sent:
-            if tok.dep_.lower() in {"case","fixed","mark"} and _locution_match(tok, causes_norm):
-                head = tok.head
-                gn = doc[head.left_edge.i: head.right_edge.i+1]
-                enregs.append({
-                    "id_phrase": pid,
-                    "type": "CAUSE_GN",
-                    "cause_span": gn.text,
-                    "consequence_span": sent.text,
-                    "ancre": tok.text,
-                    "methode": "case/fixed→obl",
-                    "phrase": sent.text
-                })
-
-        # Conséquence adverbiale en tête de phrase (donc, alors, ainsi, dès lors…)
-        premiers = [t for t in sent if not t.is_punct][:3]
-        if premiers:
-            t0 = premiers[0]
-            if _locution_match(t0, consq_norm) and t0.pos_ in {"ADV","CCONJ","SCONJ"}:
-                enregs.append({
-                    "id_phrase": pid,
-                    "type": "CONSEQUENCE_ADV",
-                    "cause_span": prev_sent_text,
-                    "consequence_span": sent.text,
-                    "ancre": t0.text,
-                    "methode": "adv/discourse tête de phrase",
-                    "phrase": sent.text
-                })
-
-        # Subordonnées consécutives (de sorte que, si bien que, de façon que…)
-        for tok in sent:
-            if tok.dep_.lower() == "mark" and _locution_match(tok, consq_norm):
-                head = tok.head
-                cons_span = doc[head.left_edge.i: head.right_edge.i+1]
-                enregs.append({
-                    "id_phrase": pid,
-                    "type": "CONSEQUENCE_SUBORDONNEE",
-                    "cause_span": sent.text,
-                    "consequence_span": cons_span.text,
-                    "ancre": tok.text,
-                    "methode": "mark→advcl(consécutif)",
-                    "phrase": sent.text
-                })
-
-        prev_sent_text = sent.text
-
-    df = pd.DataFrame(enregs)
-    if not df.empty:
-        df = df.sort_values(["id_phrase", "type"]).reset_index(drop=True)
-    return df
-
-# =========================
 # Helpers pour tableaux comparatifs (surlignage ⟦ … ⟧)
 # =========================
 def marquer_terme_brut(phrase: str, terme: str) -> str:
@@ -780,31 +642,6 @@ def table_regex_df(df: pd.DataFrame, type_marqueur: str) -> pd.DataFrame:
             "marqueur": marqueur,
             "catégorie": cat,
             "phrase_marquee": phr_m
-        })
-    return pd.DataFrame(lignes)
-
-def table_spacy_df(df_spacy: pd.DataFrame) -> pd.DataFrame:
-    """
-    Construit un DataFrame pour l’affichage Streamlit côté spaCy :
-    Colonnes : id_phrase, type, ancre, méthode, phrase_marquee, cause_span, consequence_span
-    (l’ancre est entourée de ⟦…⟧ dans la phrase).
-    """
-    if df_spacy is None or df_spacy.empty:
-        return pd.DataFrame(columns=["id_phrase", "type", "ancre", "méthode", "phrase_marquee", "cause_span", "consequence_span"])
-
-    lignes = []
-    for _, row in df_spacy.iterrows():
-        ancre = row.get("ancre", "")
-        phr = row.get("phrase", "")
-        phr_m = marquer_terme_brut(phr, ancre)
-        lignes.append({
-            "id_phrase": row.get("id_phrase", ""),
-            "type": row.get("type", ""),
-            "ancre": ancre,
-            "méthode": row.get("methode", ""),
-            "phrase_marquee": phr_m,
-            "cause_span": row.get("cause_span", ""),
-            "consequence_span": row.get("consequence_span", "")
         })
     return pd.DataFrame(lignes)
 
@@ -882,13 +719,7 @@ ALORS_TERMS = {k for k, v in DICO_CONDITIONS.items() if str(v).upper() == "ALORS
 WHILE_TERMS = {k for k, v in DICO_CONDITIONS.items() if str(v).upper() == "WHILE"}
 ALT_TERMS = set(DICO_ALTERNATIVES.keys())
 
-# Alerte spaCy/Graphviz
-if not SPACY_OK:
-    st.warning(
-        "spaCy FR indisponible (installez par exemple le modèle 'fr_core_news_md'). L’onglet spaCy utilisera uniquement Regex si aucun modèle FR n’est chargé."
-    )
-if SPACY_STATUS:
-    st.caption(" ; ".join(SPACY_STATUS))
+# Alerte Graphviz
 if not GV_OK:
     st.warning("Graphviz non détecté : l’export JPEG des graphes ne sera pas disponible (rendu DOT affiché quand même).")
 
@@ -896,12 +727,7 @@ if not GV_OK:
 with st.sidebar:
     st.header("Méthodes d’analyse")
     use_regex_cc = st.checkbox("Dictionnaire json (règles Regex)", value=True)
-    use_spacy_dev_cc = st.checkbox("Dictionnaire NLP (SpaCy) - en cours de dév", value=False)
-    if use_spacy_dev_cc:
-        st.caption("Fonctionnalité spaCy en cours de développement.")
-
-# La méthode spaCy principale est désactivée (case supprimée de l’interface)
-use_spacy_cc = False
+    st.caption("Les analyses sont basées sur des règles symboliques (Regex).")
 
 # Source du discours
 st.markdown("### Source du discours")
@@ -1019,9 +845,6 @@ libelle_discours_2 = (
         "analyse corp ira",
     ]
 )
-
-# Onglet désactivé : Comparatif règles Regex vs spaCy
-tab_comparatif = None
 
 # Onglet Analyses (listes + texte annoté)
 with tab_detections:
@@ -1222,98 +1045,6 @@ with tab_conditions:
                 with st.expander("Voir la phrase complète"):
                     st.write(sel["phrase"])
                 st.markdown("---")
-
-        st.markdown("### Analyse spaCy (modèle fr_core_news_md)")
-        if not SPACY_OK or NLP is None:
-            st.info(
-                "spaCy FR n'est pas disponible. Installez par exemple "
-                "`fr_core_news_md` pour activer cette analyse."
-            )
-        else:
-            df_conditions_spacy = analyser_conditions_spacy(
-                texte_source,
-                NLP,
-                sorted(COND_TERMS),
-                sorted(ALORS_TERMS),
-                sorted(ALT_TERMS),
-            )
-            if df_conditions_spacy.empty:
-                st.info(
-                    "Aucune structure conditionnelle n'a été identifiée par spaCy."
-                )
-            else:
-                dataframe_safe(
-                    df_conditions_spacy,
-                    use_container_width=True,
-                    hide_index=True,
-                )
-                st.download_button(
-                    "Exporter l'analyse spaCy (CSV)",
-                    data=df_conditions_spacy.to_csv(index=False).encode("utf-8"),
-                    file_name="conditions_spacy.csv",
-                    mime="text/csv",
-                    key="dl_conditions_spacy_csv",
-                )
-
-# Onglet Comparatif Regex / spaCy (désactivé)
-if tab_comparatif is not None:
-    with tab_comparatif:
-        st.subheader("Comparatif des détections Causes/Conséquences : Regex vs spaCy")
-
-        if not texte_source.strip():
-            st.info("Aucun texte fourni.")
-        else:
-            # 1) Regex — CAUSE
-            st.markdown("**Détections Regex — CAUSE**")
-            if not use_regex_cc:
-                st.info("Méthode Regex désactivée (voir barre latérale).")
-            else:
-                if df_causes_lex.empty:
-                    st.info("Aucune CAUSE trouvée par Regex.")
-                else:
-                    df_view_cause = table_regex_df(df_causes_lex, "CAUSE")
-                    dataframe_safe(df_view_cause, use_container_width=True, hide_index=True)
-
-            st.markdown("---")
-
-            # 2) Regex — CONSEQUENCE
-            st.markdown("**Détections Regex — CONSEQUENCE**")
-            if not use_regex_cc:
-                st.info("Méthode Regex désactivée (voir barre latérale).")
-            else:
-                if df_consq_lex.empty:
-                    st.info("Aucune CONSEQUENCE trouvée par Regex.")
-                else:
-                    df_view_consq = table_regex_df(df_consq_lex, "CONSEQUENCE")
-                    dataframe_safe(df_view_consq, use_container_width=True, hide_index=True)
-
-            st.markdown("---")
-
-            # 3) spaCy — CAUSE → CONSÉQUENCE
-            st.markdown("**Détections spaCy — CAUSE → CONSÉQUENCE**")
-            if use_spacy_cc and SPACY_OK and NLP is not None:
-                df_cc_spacy = extraire_cause_consequence_spacy(
-                    texte_source,
-                    NLP,
-                    list(DICO_CAUSES.keys()),
-                    list(DICO_CONSQS.keys())
-                )
-                if df_cc_spacy.empty:
-                    st.info("Aucun lien trouvé par spaCy (selon les ancres fournies).")
-                else:
-                    df_spacy_view = table_spacy_df(df_cc_spacy)
-                    dataframe_safe(df_spacy_view, use_container_width=True, hide_index=True)
-                    st.download_button(
-                        "Exporter CAUSE → CONSÉQUENCE (CSV)",
-                        data=df_spacy_view.to_csv(index=False).encode("utf-8"),
-                        file_name="cause_consequence_spacy.csv",
-                        mime="text/csv",
-                        key="dl_cc_spacy_csv"
-                    )
-            elif use_spacy_cc and not SPACY_OK:
-                st.warning("spaCy FR indisponible (installez un modèle français, par exemple 'fr_core_news_md').")
-            else:
-                st.info("Analyse spaCy désactivée.")
 
 # Onglet Annot (création de dictionnaires à partir de surlignages)
 with tab_annot:

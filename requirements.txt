@@ -1,10 +1,6 @@
 streamlit==1.38.0
 pandas>=2.0
 graphviz>=0.20
-spacy==3.7.5
-spacy-lookups-data==1.0.5
-# Modèle FR "md" installé depuis le wheel officiel (compatible spaCy 3.7.x)
-fr-core-news-md @ https://github.com/explosion/spacy-models/releases/download/fr_core_news_md-3.7.0/fr_core_news_md-3.7.0-py3-none-any.whl
 altair>=5.0
 wordcloud>=1.9
 # NumPy/BLAS stables sur Streamlit Cloud
