@@ -142,17 +142,18 @@ def _annoter_texte(df_conn: pd.DataFrame, phrases: Iterable[str] | None = None) 
     return "".join(blocs)
 
 
-def _statistiques_par_modalite(detections: pd.DataFrame) -> pd.DataFrame:
-    """Calcule la fréquence des connecteurs par modalité."""
+def _statistiques_par_variable(detections: pd.DataFrame) -> pd.DataFrame:
+    """Calcule la fréquence des connecteurs par variable."""
 
     if detections is None or detections.empty:
-        return pd.DataFrame(columns=["modalite", "code", "frequence"])
+        return pd.DataFrame(columns=["variable", "code", "frequence"])
 
     freq = (
-        detections.groupby(["modalite", "code"])
+        detections[detections["variable"] != "CUMUL"]
+        .groupby(["variable", "code"])
         .size()
         .reset_index(name="frequence")
-        .sort_values(by=["modalite", "frequence"], ascending=[True, False])
+        .sort_values(by=["variable", "frequence"], ascending=[True, False])
     )
     return freq
 
@@ -313,9 +314,7 @@ def render_corpus_iramuteq_tab(
         st.info("Aucun connecteur logique n'a été détecté dans les modalités sélectionnées.")
         return
 
-    df_stats = _statistiques_par_modalite(df_detections)
-    if not df_stats.empty:
-        df_stats = df_stats[df_stats["modalite"] != label_cumul]
+    df_stats = _statistiques_par_variable(df_detections)
 
     if not df_stats.empty:
         st.markdown("#### Histogramme comparatif des connecteurs")
@@ -323,10 +322,10 @@ def render_corpus_iramuteq_tab(
             alt.Chart(df_stats)
             .mark_bar()
             .encode(
-                x=alt.X("code:N", title="Connecteur logique"),
-                y=alt.Y("frequence:Q", title="Fréquence"),
-                color=alt.Color("modalite:N", title="Modalité"),
-                tooltip=["modalite", "code", "frequence"],
+                x=alt.X("variable:N", title="Variable analysée"),
+                y=alt.Y("frequence:Q", title="Fréquence", stack="zero"),
+                color=alt.Color("code:N", title="Connecteur logique"),
+                tooltip=["variable", "code", "frequence"],
             )
             .properties(height=350)
         )
