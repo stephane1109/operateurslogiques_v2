@@ -158,6 +158,43 @@ def _statistiques_par_variable(detections: pd.DataFrame) -> pd.DataFrame:
     return freq
 
 
+def _statistiques_par_modalite(
+    detections: pd.DataFrame, codes_cibles: List[str] | None = None
+) -> pd.DataFrame:
+    """Calcule la fréquence des connecteurs par modalité avec les codes souhaités."""
+
+    if detections is None or detections.empty:
+        return pd.DataFrame(columns=["modalite", "code", "frequence"])
+
+    codes_cibles = codes_cibles or []
+    df = detections[detections["variable"] != "CUMUL"].copy()
+    df["code"] = df["code"].astype(str).str.upper()
+
+    modalites = sorted({m for m in df.get("modalite", []).dropna() if str(m).strip()})
+    if not modalites:
+        return pd.DataFrame(columns=["modalite", "code", "frequence"])
+
+    if codes_cibles:
+        index_complet = pd.MultiIndex.from_product(
+            [modalites, codes_cibles], names=["modalite", "code"]
+        )
+    else:
+        index_complet = pd.MultiIndex.from_product(
+            [modalites, sorted({c for c in df["code"].unique() if str(c).strip()})],
+            names=["modalite", "code"],
+        )
+
+    freq = (
+        df.groupby(["modalite", "code"])
+        .size()
+        .reindex(index_complet, fill_value=0)
+        .rename("frequence")
+        .reset_index()
+    )
+
+    return freq
+
+
 def _concatener_textes_modalite(
     df_modalite: pd.DataFrame, variable: str, modalite: str
 ) -> tuple[str, str]:
@@ -332,9 +369,31 @@ def render_corpus_iramuteq_tab(
         )
         st.altair_chart(chart, use_container_width=True)
 
+        codes_cibles = ["CONDITION", "ALTERNATIVE", "ALORS"]
+        df_modalite_stats = _statistiques_par_modalite(df_detections, codes_cibles)
+
+        if not df_modalite_stats.empty:
+            st.markdown("##### Connecteurs par modalité")
+            chart_modalites = (
+                alt.Chart(df_modalite_stats)
+                .mark_bar()
+                .encode(
+                    x=alt.X(
+                        "modalite:N",
+                        title="Modalité",
+                        sort=list(df_modalite_stats["modalite"].unique()),
+                    ),
+                    y=alt.Y("frequence:Q", title="Fréquence"),
+                    color=alt.Color("code:N", title="Connecteur", sort=codes_cibles),
+                    xOffset=alt.XOffset("code:N"),
+                    tooltip=["modalite", "code", "frequence"],
+                )
+                .properties(height=300)
+            )
+            st.altair_chart(chart_modalites, use_container_width=True)
+
         st.markdown("#### Connecteurs pour la variable « modele »")
         df_modele = df_detections[df_detections["variable"].str.lower() == "modele"].copy()
-        codes_cibles = ["CONDITION", "ALTERNATIVE", "ALORS"]
 
         if df_modele.empty:
             st.info("Aucune statistique disponible pour la variable \"modele\".")
