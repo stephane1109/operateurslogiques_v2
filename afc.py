@@ -18,7 +18,6 @@ import unicodedata
 
 import prince
 from sklearn.feature_extraction.text import CountVectorizer
-from spacy.lang.fr.stop_words import STOP_WORDS as SPACY_STOP_WORDS
 
 from text_utils import normaliser_espace, segmenter_en_phrases
 
@@ -125,7 +124,7 @@ def preparer_matrice_afc(
         raise ValueError("Aucune phrase ne contient les marqueurs sélectionnés.")
 
     labels = [f"{row.discours} – phrase {row.id_phrase}" for row in df_selection.itertuples()]
-    vectorizer = CountVectorizer(stop_words=sorted(SPACY_STOP_WORDS), min_df=min_df)
+    vectorizer = CountVectorizer(stop_words="french", min_df=min_df)
     matrice_sparse = vectorizer.fit_transform(df_selection["texte_phrase"])
     if matrice_sparse.shape[1] == 0:
         raise ValueError("Aucun mot retenu après filtrage (stopwords ou fréquence minimale trop élevée).")
@@ -349,4 +348,3 @@ def render_afc_tab(
     if not coords_marqueurs.empty:
         with st.expander("Positions des marqueurs/connecteurs (illustratifs)"):
             st.dataframe(coords_marqueurs, use_container_width=True)
-

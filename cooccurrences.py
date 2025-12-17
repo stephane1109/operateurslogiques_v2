@@ -8,9 +8,8 @@ from __future__ import annotations
 import re
 import html
 from collections import Counter
-from functools import lru_cache
 from itertools import combinations
-from typing import Iterable, List, Optional
+from typing import Iterable, List
 
 import altair as alt
 import pandas as pd
@@ -22,54 +21,125 @@ try:  # pragma: no cover - dépendance optionnelle à l'import
 except ImportError:  # pragma: no cover - WordCloud non installée
     WordCloud = None
 
-try:  # pragma: no cover - dépendance optionnelle à l'import
-    import spacy
-    from spacy.language import Language
-except ImportError:  # pragma: no cover - spaCy non installé
-    spacy = None
-    Language = None
-
-try:  # pragma: no cover - spaCy non installé
-    from spacy.lang.fr.stop_words import STOP_WORDS as SPACY_STOP_WORDS
-except ImportError:  # pragma: no cover - spaCy non installé
-    SPACY_STOP_WORDS = set()
+FRENCH_STOPWORDS = {
+    "alors",
+    "au",
+    "aucuns",
+    "aussi",
+    "autre",
+    "avant",
+    "avec",
+    "avoir",
+    "bon",
+    "car",
+    "ce",
+    "cela",
+    "ces",
+    "ceux",
+    "chaque",
+    "ci",
+    "comme",
+    "comment",
+    "dans",
+    "des",
+    "du",
+    "dedans",
+    "dehors",
+    "depuis",
+    "deux",
+    "devrait",
+    "doit",
+    "donc",
+    "dos",
+    "début",
+    "elle",
+    "elles",
+    "en",
+    "encore",
+    "es",
+    "est",
+    "et",
+    "eu",
+    "fait",
+    "faites",
+    "fois",
+    "font",
+    "hors",
+    "ici",
+    "il",
+    "ils",
+    "je",
+    "juste",
+    "la",
+    "le",
+    "les",
+    "leur",
+    "là",
+    "ma",
+    "maintenant",
+    "mais",
+    "mes",
+    "mine",
+    "moins",
+    "mon",
+    "mot",
+    "même",
+    "ne",
+    "ni",
+    "nommés",
+    "notre",
+    "nous",
+    "nouveaux",
+    "ou",
+    "où",
+    "par",
+    "parce",
+    "parole",
+    "pas",
+    "peut",
+    "peu",
+    "plupart",
+    "pour",
+    "pourquoi",
+    "quand",
+    "que",
+    "quel",
+    "quelle",
+    "quelles",
+    "quels",
+    "qui",
+    "sa",
+    "sans",
+    "ses",
+    "seulement",
+    "si",
+    "sien",
+    "son",
+    "sont",
+    "sous",
+    "soyez",
+    "sujet",
+    "sur",
+    "ta",
+    "tandis",
+    "tellement",
+    "tels",
+    "tes",
+    "ton",
+    "tous",
+    "tout",
+    "trop",
+    "très",
+    "tu",
+    "voient",
+    "vont",
+    "votre",
+    "vous",
+    "vu",
+}
 
 
 _WORD_PATTERN = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ']+")
-
-
-_SPACY_MODELE_NOM: Optional[str] = None
-_SPACY_MODELES_TENTES: tuple[str, ...] = ()
-
-
-@lru_cache(maxsize=1)
-def _charger_modele_spacy() -> Optional["Language"]:
-    """Charge un modèle spaCy français en le mettant en cache."""
-
-    global _SPACY_MODELE_NOM, _SPACY_MODELES_TENTES
-
-    if spacy is None:
-        _SPACY_MODELE_NOM = None
-        _SPACY_MODELES_TENTES = ()
-        return None
-
-    essais: list[str] = []
-    for nom_modele in ("fr_core_news_md", "fr_core_news_sm"):
-        essais.append(nom_modele)
-        try:
-            modele = spacy.load(nom_modele)
-        except OSError:
-            continue
-        except Exception:
-            continue
-        else:
-            _SPACY_MODELE_NOM = nom_modele
-            _SPACY_MODELES_TENTES = tuple(essais)
-            return modele
-
-    _SPACY_MODELE_NOM = None
-    _SPACY_MODELES_TENTES = tuple(essais)
-    return None
 
 
 def _segmenter_en_phrases(texte: str) -> List[str]:
@@ -80,52 +150,23 @@ def _segmenter_en_phrases(texte: str) -> List[str]:
     return [m.strip() for m in morceaux if m and m.strip()]
 
 
-def _formater_noms_modeles(noms: Iterable[str]) -> str:
-    noms_list = [f"'{nom}'" for nom in noms]
-    if not noms_list:
-        return ""
-    if len(noms_list) == 1:
-        return noms_list[0]
-    return ", ".join(noms_list[:-1]) + f" et {noms_list[-1]}"
-
-
 def _extraire_mots(
     phrase: str,
     *,
     longueur_min: int = 2,
-    modele_spacy: Optional["Language"] = None,
     filtrer_stopwords: bool = True,
 ) -> List[str]:
     """Extrait des mots en minuscule, filtrés sur la longueur minimale.
 
     Le paramètre ``filtrer_stopwords`` permet de contrôler la suppression des mots
-    outils lorsqu'un modèle spaCy est disponible ou, à défaut, via la liste de
-    stopwords fournie par ``spacy.lang.fr``.
+    outils via une liste locale de stopwords français.
     """
     if not phrase:
         return []
 
-    if modele_spacy is None:
-        modele_spacy = _charger_modele_spacy()
-
-    if modele_spacy is not None:
-        doc = modele_spacy(phrase)
-        tokens = []
-        for token in doc:
-            if not token.is_alpha:
-                continue
-            if len(token.text) < longueur_min:
-                continue
-            if filtrer_stopwords and token.is_stop:
-                continue
-            lemme = token.lemma_.lower() if token.lemma_ else token.text.lower()
-            tokens.append(lemme)
-        if tokens:
-            return tokens
-
     mots = [m.lower() for m in _WORD_PATTERN.findall(phrase)]
     if filtrer_stopwords:
-        stopwords = SPACY_STOP_WORDS if SPACY_STOP_WORDS else set()
+        stopwords = FRENCH_STOPWORDS
     else:
         stopwords = set()
     return [m for m in mots if len(m) >= longueur_min and m not in stopwords]
@@ -134,39 +175,12 @@ def _extraire_mots(
 def _mettre_en_evidence_mots(
     phrase: str,
     mots_cibles: Iterable[str],
-    modele_spacy: Optional["Language"] = None,
 ) -> str:
     """Retourne la phrase en HTML avec les mots cibles entourés de <mark>."""
 
     mots_cibles_set = {m.lower() for m in mots_cibles if m}
     if not phrase or not mots_cibles_set:
         return html.escape(phrase)
-
-    if modele_spacy is not None:
-        try:
-            doc = modele_spacy(phrase)
-        except Exception:
-            doc = None
-    else:
-        doc = None
-
-    if doc is not None:
-        morceaux: list[str] = []
-        dernier_index = 0
-        for token in doc:
-            debut, fin = token.idx, token.idx + len(token.text)
-            if debut >= len(phrase):
-                continue
-            morceaux.append(html.escape(phrase[dernier_index:debut]))
-            lemme = token.lemma_.lower() if token.lemma_ else token.text.lower()
-            texte_token = html.escape(token.text)
-            if lemme in mots_cibles_set:
-                morceaux.append(f"<mark>{texte_token}</mark>")
-            else:
-                morceaux.append(texte_token)
-            dernier_index = fin
-        morceaux.append(html.escape(phrase[dernier_index:]))
-        return "".join(morceaux)
 
     morceaux: list[str] = []
     dernier_index = 0
@@ -187,7 +201,6 @@ def _generer_cooccurrences(
     texte: str,
     *,
     longueur_min: int = 2,
-    modele_spacy: Optional["Language"] = None,
     granularite: str = "phrase",
     filtrer_stopwords: bool = True,
 ) -> Counter[str]:
@@ -199,7 +212,6 @@ def _generer_cooccurrences(
         tokens = _extraire_mots(
             texte,
             longueur_min=longueur_min,
-            modele_spacy=modele_spacy,
             filtrer_stopwords=filtrer_stopwords,
         )
         if len(tokens) < 2:
@@ -219,7 +231,6 @@ def _generer_cooccurrences(
                 _extraire_mots(
                     phrase,
                     longueur_min=longueur_min,
-                    modele_spacy=modele_spacy,
                     filtrer_stopwords=filtrer_stopwords,
                 )
             )
@@ -240,11 +251,9 @@ def calculer_table_cooccurrences(
     filtrer_stopwords: bool = True,
 ) -> pd.DataFrame:
     """Retourne un DataFrame des co-occurrences triées par fréquence décroissante."""
-    modele_spacy = _charger_modele_spacy()
     compteur = _generer_cooccurrences(
         texte,
         longueur_min=longueur_min,
-        modele_spacy=modele_spacy,
         granularite=granularite,
         filtrer_stopwords=filtrer_stopwords,
     )
@@ -374,27 +383,6 @@ def render_cooccurrences_tab(texte_source: str) -> None:
         help="Décochez pour conserver tous les mots, y compris les articles et prépositions.",
     )
 
-    modele_spacy = _charger_modele_spacy()
-    if filtrer_stopwords and modele_spacy is None:
-        if spacy is None:
-            st.warning(
-                "spaCy n'est pas disponible. Les stopwords ne pourront pas être filtrés."
-            )
-        else:
-            noms_modeles = _SPACY_MODELES_TENTES or ("fr_core_news_md", "fr_core_news_sm")
-            st.warning(
-                "Les modèles spaCy "
-                f"{_formater_noms_modeles(noms_modeles)} n'ont pas pu être chargés. "
-                "Le filtrage des stopwords sera limité."
-            )
-    elif _SPACY_MODELE_NOM:
-        message = f"Modèle spaCy chargé : {_SPACY_MODELE_NOM}"
-        if _SPACY_MODELE_NOM == "fr_core_news_sm":
-            message += " (installez 'fr_core_news_md' pour des résultats enrichis)"
-        st.caption(message)
-    if not filtrer_stopwords:
-        st.caption("Le filtrage des stopwords est désactivé pour cette analyse.")
-
     mot_cle_saisi = st.text_input(
         "Mot-clé pour une analyse ciblée",
         help="Analyse les co-occurrences limitées au mot indiqué.",
@@ -498,7 +486,6 @@ def render_cooccurrences_tab(texte_source: str) -> None:
         tokens_phrase = _extraire_mots(
             phrase,
             longueur_min=longueur_min,
-            modele_spacy=modele_spacy,
             filtrer_stopwords=filtrer_stopwords,
         )
         if not tokens_phrase:
@@ -515,7 +502,6 @@ def render_cooccurrences_tab(texte_source: str) -> None:
         phrase_html = _mettre_en_evidence_mots(
             phrase,
             mots_a_surligner,
-            modele_spacy=modele_spacy,
         )
         st.markdown(
             f"<div style='margin-bottom:0.25rem'>{phrase_html}</div>",
