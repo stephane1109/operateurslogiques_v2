@@ -139,6 +139,28 @@ def _statistiques_par_modalite(detections: pd.DataFrame) -> pd.DataFrame:
     return freq
 
 
+def _concatener_textes_modalite(
+    df_modalite: pd.DataFrame, variable: str, modalite: str
+) -> tuple[str, str]:
+    """Assemble les segments d'une modalité en un seul bloc de texte.
+
+    Retourne également une balise utilisable comme étiquette si aucune balise
+    explicite n'est disponible dans le corpus.
+    """
+
+    textes = [str(t).strip() for t in df_modalite.get("texte", []) if str(t).strip()]
+    if not textes:
+        return "", ""
+
+    balise = next(
+        (str(b).strip() for b in df_modalite.get("balise", []) if str(b).strip()), ""
+    )
+    if not balise:
+        balise = f"*{variable}_{modalite}".rstrip("_")
+
+    return "\n\n".join(textes), balise
+
+
 def render_corpus_iramuteq_tab(
     df_modalites: pd.DataFrame,
     dictionnaires_dir: Path,
@@ -205,8 +227,13 @@ def render_corpus_iramuteq_tab(
             df_mod = df_filtre[df_filtre["modalite"] == modalite]
             if df_mod.empty:
                 continue
-            texte_concat = "\n\n".join(df_mod["texte"].astype(str))
-            balise_label = f"*{variable}_{modalite}".rstrip("_")
+
+            texte_concat, balise_label = _concatener_textes_modalite(
+                df_mod, variable, modalite
+            )
+            if not texte_concat:
+                continue
+
             textes_cumules.append((balise_label, variable, texte_concat))
             df_conn = _detecter_connecteurs(texte_concat, dico_connecteurs)
             if not df_conn.empty:
