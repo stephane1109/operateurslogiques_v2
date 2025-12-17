@@ -323,8 +323,9 @@ def render_corpus_iramuteq_tab(
             .mark_bar()
             .encode(
                 x=alt.X("variable:N", title="Variable analysée"),
-                y=alt.Y("frequence:Q", title="Fréquence", stack="zero"),
+                y=alt.Y("frequence:Q", title="Fréquence"),
                 color=alt.Color("code:N", title="Connecteur logique"),
+                xOffset=alt.XOffset("code:N"),
                 tooltip=["variable", "code", "frequence"],
             )
             .properties(height=350)
