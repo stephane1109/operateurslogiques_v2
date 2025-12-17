@@ -27,6 +27,17 @@ import streamlit.runtime as runtime
 import hashlib
 from typing import List, Dict, Tuple, Any, Optional
 
+# Lorsque le script est exécuté via ``python main.py``, Streamlit passe en mode
+# "bare" et inonde les logs d'avertissements. Pour offrir la même expérience
+# qu'en déploiement (``streamlit run``) on relance automatiquement le script via
+# le CLI Streamlit quand aucun runtime n'est actif.
+if __name__ == "__main__" and not runtime.exists():
+    import sys
+    from streamlit.web import cli as stcli
+
+    sys.argv = ["streamlit", "run", str(Path(__file__).resolve()), *sys.argv[1:]]
+    sys.exit(stcli.main())
+
 from analyses import (
     COULEURS_BADGES,
     COULEURS_MARQUEURS,
@@ -1291,12 +1302,3 @@ with tab_discours:
                 dico_causes=DICO_CAUSES,
                 dico_tensions=DICO_TENSIONS,
             )
-
-if __name__ == "__main__" and not runtime.exists():
-    # Permet de lancer l'application avec ``python main.py`` sans entrer dans
-    # le mode "bare" de Streamlit qui provoque des reruns en boucle.
-    import sys
-    from streamlit.web import cli as stcli
-
-    sys.argv = ["streamlit", "run", str(Path(__file__).resolve()), *sys.argv[1:]]
-    sys.exit(stcli.main())
