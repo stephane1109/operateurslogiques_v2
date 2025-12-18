@@ -40,7 +40,6 @@ from import_exp import dictionnaire_to_bytes, parse_uploaded_dictionary
 
 from stats import render_stats_tab
 from stats_norm import render_stats_norm_tab
-from argToulmin import render_toulmin_tab
 from lexique import render_lexique_tab
 from storytelling.pynarrative import generer_storytelling_mermaid
 from storytelling.actanciel import (
@@ -959,7 +958,6 @@ libelle_discours_2 = (
     tab_stats,
     tab_stats_norm,
     tab_discours,
-    tab_toulmin,
     tab_dicos,
     tab_lexique,
     tab_annot,
@@ -971,7 +969,6 @@ libelle_discours_2 = (
         "Stats",
         "Stats norm",
         "2 discours",
-        "Arg Toulmin",
         "Dictionnaires (JSON)",
         "Lexique",
         "Annot",
@@ -1087,17 +1084,6 @@ with tab_dicos:
 # Onglet Lexique
 with tab_lexique:
     render_lexique_tab()
-
-# Onglet Argumentation (Toulmin)
-with tab_toulmin:
-    render_toulmin_tab(
-        texte_source,
-        texte_source_2=texte_source_2,
-        heading_discours_1=libelle_discours_1,
-        heading_discours_2=libelle_discours_2,
-        couleur_discours_1=couleur_discours_1,
-        couleur_discours_2=couleur_discours_2,
-    )
 
 # Onglet 3 : conditions logiques : si/alors
 with tab_conditions:
