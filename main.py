@@ -69,42 +69,9 @@ def rendre_jpeg_depuis_dot(dot_str: str) -> bytes:
 # =========================
 SPACY_OK = False
 NLP = None
-SPACY_STATUS: List[str] = []
-try:
-    import spacy
-
-    def _charger_modele_spacy(nom_modele: str) -> Any:
-        """Tente de charger un modèle spaCy FR sans téléchargement automatique."""
-        try:
-            return spacy.load(nom_modele)
-        except OSError:
-            SPACY_STATUS.append(
-                f"Modèle spaCy '{nom_modele}' absent. Installez-le manuellement"
-                f" (ex.: python -m spacy download {nom_modele}) pour activer l'analyse NLP."
-            )
-        except Exception as err:
-            SPACY_STATUS.append(
-                f"Chargement du modèle spaCy '{nom_modele}' impossible : {err}"
-            )
-        return None
-
-    for name in ("fr_core_news_md", "fr_core_news_sm"):
-        modele = _charger_modele_spacy(name)
-        if modele is not None:
-            NLP = modele
-            SPACY_OK = True
-            SPACY_STATUS.append(f"Modèle spaCy chargé : {name}")
-            if name == "fr_core_news_sm":
-                SPACY_STATUS.append(
-                    "Le modèle moyen 'fr_core_news_md' est recommandé pour de meilleures analyses."
-                )
-            break
-    if not SPACY_OK:
-        SPACY_STATUS.append("Aucun modèle spaCy FR n'a pu être chargé.")
-except Exception as err:
-    SPACY_OK = False
-    NLP = None
-    SPACY_STATUS.append(f"Import de spaCy impossible : {err}")
+SPACY_STATUS: List[str] = [
+    "Chargement spaCy désactivé : aucun modèle n'est importé dans cette version."
+]
 
 def _est_debut_segment(texte: str, index: int) -> bool:
     """Vérifie qu’un index correspond au début d’un segment (début ou précédé d’une ponctuation forte)."""
