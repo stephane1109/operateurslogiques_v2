@@ -20,6 +20,7 @@ from iramuteq.corpusiramuteq import lire_fichier_iramuteq, segmenter_corpus_par_
 
 BASE_DIR = Path(__file__).resolve().parent
 DICTIONNAIRES_DIR = BASE_DIR / "dictionnaires"
+EXEMPLES_DIR = BASE_DIR / "exemples"
 
 
 def initialiser_session() -> None:
@@ -76,6 +77,48 @@ def afficher_resume_corpus(df_modalites: pd.DataFrame) -> None:
         )
 
 
+def _charger_et_memoriser_corpus(source, nom_fichier: str) -> None:
+    """Lit un corpus, stocke les résultats et son hash dans la session."""
+
+    try:
+        texte_corpus, df_modalites = charger_corpus(source)
+    except Exception as err:
+        st.error(f"Impossible de lire le corpus : {err}")
+        return
+
+    contenu_bytes = texte_corpus.encode("utf-8", errors="ignore")
+    hash_corpus = hashlib.sha256(contenu_bytes).hexdigest()
+
+    if hash_corpus == st.session_state.get("corpus_hash"):
+        return
+
+    st.session_state.corpus_df = df_modalites
+    st.session_state.corpus_texte = texte_corpus
+    st.session_state.corpus_nom = nom_fichier
+    st.session_state.corpus_hash = hash_corpus
+
+
+def _proposer_exemples() -> None:
+    """Affiche la liste des fichiers d'exemple locaux et permet de les charger."""
+
+    fichiers_exemple = sorted(EXEMPLES_DIR.glob("*.txt")) if EXEMPLES_DIR.exists() else []
+    if not fichiers_exemple:
+        st.info("Aucun fichier d'exemple n'a été trouvé dans le dossier 'exemples'.")
+        return
+
+    fichier_selectionne = st.selectbox(
+        "Ou choisir un discours d'exemple :",
+        options=[""] + [f.name for f in fichiers_exemple],
+        format_func=lambda x: "Sélectionner..." if x == "" else x,
+    )
+
+    charger_exemple = st.button("Charger l'exemple sélectionné", use_container_width=True)
+
+    if charger_exemple and fichier_selectionne:
+        chemin_fichier = EXEMPLES_DIR / fichier_selectionne
+        _charger_et_memoriser_corpus(chemin_fichier, fichier_selectionne)
+
+
 def page_iramuteq() -> None:
     """Construit la page principale centrée sur les outils IRaMuTeQ."""
 
@@ -88,28 +131,24 @@ def page_iramuteq() -> None:
     vider_cache_application()
     initialiser_session()
 
-    fichier_corpus = st.sidebar.file_uploader(
-        "Déposer un corpus IRaMuTeQ (.txt ou .iramuteq)",
-        type=["txt", "iramuteq"],
-        accept_multiple_files=False,
-        help="Le fichier doit contenir les balises **** et les variables/modalités attendues par IRaMuTeQ.",
-    )
+    with st.sidebar:
+        st.header("Importer un corpus")
+        st.caption(
+            "Chargez un fichier IRaMuTeQ (.txt ou .iramuteq). Le découpage est assuré par le script "
+            "`iramuteq/corpusiramuteq.py`."
+        )
+        fichier_corpus = st.file_uploader(
+            "Déposer un corpus IRaMuTeQ (.txt ou .iramuteq)",
+            type=["txt", "iramuteq"],
+            accept_multiple_files=False,
+            help="Le fichier doit contenir les balises **** et les variables/modalités attendues par IRaMuTeQ.",
+        )
 
-    if fichier_corpus is not None:
-        contenu_fichier = fichier_corpus.getvalue()
-        hash_corpus = hashlib.sha256(contenu_fichier).hexdigest()
+        if fichier_corpus is not None:
+            _charger_et_memoriser_corpus(fichier_corpus, fichier_corpus.name)
 
-        if hash_corpus != st.session_state.get("corpus_hash"):
-            try:
-                texte_corpus, df_modalites = charger_corpus(fichier_corpus)
-            except Exception as err:
-                st.error(f"Impossible de lire le corpus : {err}")
-                return
-
-            st.session_state.corpus_df = df_modalites
-            st.session_state.corpus_texte = texte_corpus
-            st.session_state.corpus_nom = fichier_corpus.name
-            st.session_state.corpus_hash = hash_corpus
+        st.divider()
+        _proposer_exemples()
 
     df_modalites = st.session_state.corpus_df
 
@@ -130,9 +169,6 @@ def page_iramuteq() -> None:
             """
         )
 
-        if fichier_corpus is None and df_modalites.empty:
-            st.info("Aucun corpus chargé pour le moment.")
-
         if df_modalites is not None and not df_modalites.empty:
             st.success(
                 f"Corpus chargé : {st.session_state.corpus_nom or 'fichier inconnu'} • {len(st.session_state.corpus_texte)} caractères"
@@ -140,6 +176,8 @@ def page_iramuteq() -> None:
             afficher_resume_corpus(df_modalites)
             with st.expander("Aperçu du corpus segmenté", expanded=False):
                 st.dataframe(df_modalites, use_container_width=True)
+        else:
+            st.info("Aucun corpus chargé pour le moment.")
 
     with onglet_analyse:
         st.title("Analyses IRaMuTeQ des connecteurs logiques")
