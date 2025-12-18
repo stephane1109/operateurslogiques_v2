@@ -15,25 +15,10 @@ import pandas as pd
 import streamlit as st
 
 from iramuteq.analyseiramuteq import render_corpus_iramuteq_tab
-from iramuteq.corpusiramuteq import segmenter_corpus_par_modalite
+from iramuteq.corpusiramuteq import lire_fichier_iramuteq, segmenter_corpus_par_modalite
 
 BASE_DIR = Path(__file__).resolve().parent
 DICTIONNAIRES_DIR = BASE_DIR / "dictionnaires"
-
-
-def lire_fichier_txt(uploaded_file) -> str:
-    """Lit un fichier texte en essayant plusieurs encodages courants."""
-
-    if uploaded_file is None:
-        return ""
-
-    donnees = uploaded_file.getvalue()
-    for enc in ["utf-8", "utf-8-sig", "latin-1", "cp1252"]:
-        try:
-            return donnees.decode(enc)
-        except Exception:
-            continue
-    return donnees.decode("utf-8", errors="ignore")
 
 
 def initialiser_session() -> None:
@@ -52,7 +37,7 @@ def initialiser_session() -> None:
 def charger_corpus(uploaded_file) -> Tuple[str, pd.DataFrame]:
     """Retourne le texte du corpus et son découpage en variables/modalités."""
 
-    texte = lire_fichier_txt(uploaded_file)
+    texte = lire_fichier_iramuteq(uploaded_file)
     if not texte.strip():
         return "", pd.DataFrame(columns=["variable", "modalite", "texte", "balise"])
 
@@ -88,18 +73,9 @@ def page_iramuteq() -> None:
 
     initialiser_session()
 
-    st.sidebar.header("Navigation")
-    page_courante = st.sidebar.radio(
-        "Aller à",
-        (
-            "Importer le corpus",
-            "Analyser les connecteurs",
-        ),
-    )
-
     fichier_corpus = st.sidebar.file_uploader(
-        "Déposer un corpus IRaMuTeQ (.txt)",
-        type=["txt"],
+        "Déposer un corpus IRaMuTeQ (.txt ou .iramuteq)",
+        type=["txt", "iramuteq"],
         accept_multiple_files=False,
         help="Le fichier doit contenir les balises **** et les variables/modalités attendues par IRaMuTeQ.",
     )
@@ -117,7 +93,9 @@ def page_iramuteq() -> None:
 
     df_modalites = st.session_state.corpus_df
 
-    if page_courante == "Importer le corpus":
+    onglet_import, onglet_analyse = st.tabs(["Importer le corpus", "Analyses"])
+
+    with onglet_import:
         st.title("Importer et préparer le corpus IRaMuTeQ")
         st.markdown(
             "Cette interface utilise les modules **iramuteq** pour importer un corpus, "
@@ -126,9 +104,9 @@ def page_iramuteq() -> None:
 
         st.markdown(
             """### Comment démarrer ?
-            1. Déposez un fichier texte IRaMuTeQ (.txt) contenant vos balises `****` et vos variables/modalités.
+            1. Déposez un fichier texte IRaMuTeQ (.txt) ou une archive de projet (.iramuteq).
             2. Vérifiez le découpage automatique du corpus (variable, modalité, texte).
-            3. Passez à la page « Analyser les connecteurs » pour explorer les statistiques.
+            3. Passez à l'onglet « Analyses » pour explorer les statistiques.
             """
         )
 
@@ -143,15 +121,15 @@ def page_iramuteq() -> None:
             with st.expander("Aperçu du corpus segmenté", expanded=False):
                 st.dataframe(df_modalites, use_container_width=True)
 
-    if page_courante == "Analyser les connecteurs":
-        st.title("Analyse IRaMuTeQ des connecteurs logiques")
+    with onglet_analyse:
+        st.title("Analyses IRaMuTeQ des connecteurs logiques")
         st.markdown(
             "Les statistiques et textes annotés s'appuient sur le dictionnaire « connecteursiramuteq.json »."
         )
 
         if df_modalites is None or df_modalites.empty:
             st.info(
-                "Importez d'abord un corpus via la page « Importer le corpus » pour lancer l'analyse."
+                "Importez d'abord un corpus via l'onglet « Importer le corpus » pour lancer l'analyse."
             )
             return
 
