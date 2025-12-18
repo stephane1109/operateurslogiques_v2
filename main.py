@@ -50,7 +50,6 @@ from storytelling.actanciel import (
     construire_tableau_actanciel,
     synthese_roles_actanciels,
 )
-from storytelling.sentiments import render_sentiments_tab
 from streamlit_utils import dataframe_safe
 from text_utils import normaliser_espace, segmenter_en_phrases
 from annotations import render_annotation_tab
@@ -972,7 +971,6 @@ libelle_discours_2 = (
     tab_lexique,
     tab_annot,
     tab_storytelling,
-    tab_sentiments,
     tab_camembert,
     tab_toxicite,
     tab_zero_shot,
@@ -988,7 +986,6 @@ libelle_discours_2 = (
         "Lexique",
         "Annot",
         "Storytelling",
-        "ASentsVader",
         "AnalysSentCamemBert",
         "AnalysSentToxic",
         "zeroclassification",
@@ -1412,14 +1409,6 @@ with tab_storytelling:
                         data=synthese.set_index("role_actanciel"),
                         use_container_width=True,
                     )
-
-with tab_sentiments:
-    render_sentiments_tab(
-        texte_source,
-        texte_source_2,
-        libelle_discours_1,
-        libelle_discours_2,
-    )
 
 with tab_camembert:
     render_camembert_tab(
