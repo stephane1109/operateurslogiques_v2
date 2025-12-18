@@ -2,6 +2,7 @@
 # main.py — Discours → Code (SI / ALORS / SINON / TANT QUE) + Marqueurs + Causes/Conséquences
 # Ce script vise à détecter des connecteurs logiques et des marqueurs spécifiques dans le discours.
 # Il est d’autant plus pertinent lorsqu’il est appliqué à plusieurs discours d’un même auteur ou locuteur prononcés dans des contextes différents.
+# Méthodes comparées : Regex vs spaCy (modèle moyen si disponible)
 #
 # Fichiers requis dans le sous-répertoire dictionnaires/ :
 #   - conditions.json        : mapping des segments conditionnels → CONDITION / ALORS / WHILE
@@ -12,6 +13,7 @@
 #   - souvenirs.json         : déclencheurs liés à la mémoire → « MEM_* »
 #
 # Remarques :
+#   - L’extraction CAUSE→CONSEQUENCE spaCy exploite la dépendance/les ancres causales et consécutives.
 #   - Négation « ne … pouvoir … (pas/plus/jamais) » : ajustement par regex (sans options supplémentaires).
 #   - Graphes conditionnels (IF/SI) et WHILE : rendu DOT (à l’écran) + export JPEG si Graphviz est présent (binaire 'dot').
 
@@ -23,37 +25,12 @@ import copy
 from pathlib import Path
 import pandas as pd
 import streamlit as st
-import streamlit.runtime as runtime
-import hashlib
 from typing import List, Dict, Tuple, Any, Optional
-
-_BOOTSTRAP_ENV_VAR = "STREAMLIT_BOOTSTRAPPED"
-
-# Lorsque le script est exécuté via ``python main.py``, Streamlit passe en mode
-# "bare" et inonde les logs d'avertissements. Pour offrir la même expérience
-# qu'en déploiement (``streamlit run``) on relance automatiquement le script via
-# le CLI Streamlit quand aucun runtime n'est actif. On évite cependant les
-# boucles de relance en plaçant un marqueur d'environnement.
-if (
-    __name__ == "__main__"
-    and not runtime.exists()
-    and os.environ.get(_BOOTSTRAP_ENV_VAR) != "1"
-):
-    import sys
-    from streamlit.web import cli as stcli
-
-    os.environ[_BOOTSTRAP_ENV_VAR] = "1"
-    cible_script = str(Path(__file__).resolve())
-    args_supplementaires = [arg for arg in sys.argv[1:] if arg != cible_script]
-    sys.argv = ["streamlit", "run", cible_script, *args_supplementaires]
-    sys.exit(stcli.main())
 
 from analyses import (
     COULEURS_BADGES,
     COULEURS_MARQUEURS,
     COULEURS_TENSIONS,
-    css_badges,
-    html_annote,
     construire_regex_depuis_liste,
     render_analyses_tab,
     render_detection_section,
@@ -63,6 +40,7 @@ from import_exp import dictionnaire_to_bytes, parse_uploaded_dictionary
 
 from stats import render_stats_tab
 from stats_norm import render_stats_norm_tab
+from conditions_spacy import analyser_conditions_spacy
 from argToulmin import render_toulmin_tab
 from lexique import render_lexique_tab
 from storytelling.pynarrative import generer_storytelling_mermaid
@@ -72,17 +50,16 @@ from storytelling.actanciel import (
     construire_tableau_actanciel,
     synthese_roles_actanciels,
 )
+from storytelling.sentiments import render_sentiments_tab
+from storytelling.feel import render_feel_tab
 from streamlit_utils import dataframe_safe
-from iramuteq.corpusiramuteq import (
-    filtrer_modalites,
-    fusionner_textes_modalites,
-    fusionner_textes_par_variable,
-    frequences_marqueurs_par_modalite,
-    segmenter_corpus_par_modalite,
-)
-from iramuteq.analyseiramuteq import render_corpus_iramuteq_tab
 from text_utils import normaliser_espace, segmenter_en_phrases
 from annotations import render_annotation_tab
+from analaysesentiments import (
+    render_camembert_tab,
+    render_toxicite_tab,
+    render_zero_shot_tab,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 DICTIONNAIRES_DIR = BASE_DIR / "dictionnaires"
@@ -102,6 +79,48 @@ def rendre_jpeg_depuis_dot(dot_str: str) -> bytes:
         raise RuntimeError("Graphviz (binaire 'dot') indisponible sur ce système.")
     src = graphviz.Source(dot_str)
     return src.pipe(format="jpg")
+
+# =========================
+# Chargement spaCy (modèles FR standards)
+# =========================
+SPACY_OK = False
+NLP = None
+SPACY_STATUS: List[str] = []
+try:
+    import spacy
+
+    def _charger_modele_spacy(nom_modele: str) -> Any:
+        """Tente de charger un modèle spaCy FR sans téléchargement automatique."""
+        try:
+            return spacy.load(nom_modele)
+        except OSError:
+            SPACY_STATUS.append(
+                f"Modèle spaCy '{nom_modele}' absent. Installez-le manuellement"
+                f" (ex.: python -m spacy download {nom_modele}) pour activer l'analyse NLP."
+            )
+        except Exception as err:
+            SPACY_STATUS.append(
+                f"Chargement du modèle spaCy '{nom_modele}' impossible : {err}"
+            )
+        return None
+
+    for name in ("fr_core_news_md", "fr_core_news_sm"):
+        modele = _charger_modele_spacy(name)
+        if modele is not None:
+            NLP = modele
+            SPACY_OK = True
+            SPACY_STATUS.append(f"Modèle spaCy chargé : {name}")
+            if name == "fr_core_news_sm":
+                SPACY_STATUS.append(
+                    "Le modèle moyen 'fr_core_news_md' est recommandé pour de meilleures analyses."
+                )
+            break
+    if not SPACY_OK:
+        SPACY_STATUS.append("Aucun modèle spaCy FR n'a pu être chargé.")
+except Exception as err:
+    SPACY_OK = False
+    NLP = None
+    SPACY_STATUS.append(f"Import de spaCy impossible : {err}")
 
 def _est_debut_segment(texte: str, index: int) -> bool:
     """Vérifie qu’un index correspond au début d’un segment (début ou précédé d’une ponctuation forte)."""
@@ -152,42 +171,24 @@ def construire_df_phrases_storytelling(
     )
 
 
-def preparer_detections(
-    texte_source: str,
-    use_regex_cc: bool,
-    *,
-    dico_connecteurs: Dict[str, str] | None = None,
-    dico_marqueurs: Dict[str, str] | None = None,
-    dico_memoires: Dict[str, str] | None = None,
-    dico_consq: Dict[str, str] | None = None,
-    dico_causes: Dict[str, str] | None = None,
-    dico_tensions: Dict[str, str] | None = None,
-) -> Dict[str, pd.DataFrame]:
+def preparer_detections(texte_source: str, use_regex_cc: bool) -> Dict[str, pd.DataFrame]:
     """Retourne l'ensemble des DataFrames de détection pour un texte donné."""
-
-    dico_connecteurs = dico_connecteurs or DICO_CONNECTEURS
-    dico_marqueurs = dico_marqueurs or DICO_MARQUEURS
-    dico_memoires = dico_memoires or DICO_MEMOIRES
-    dico_consq = dico_consq or DICO_CONSQS
-    dico_causes = dico_causes or DICO_CAUSES
-    dico_tensions = dico_tensions or DICO_TENSIONS
-
     if texte_source.strip():
-        df_conn = detecter_connecteurs(texte_source, dico_connecteurs)
-        df_marq_brut = detecter_marqueurs(texte_source, dico_marqueurs)
+        df_conn = detecter_connecteurs(texte_source, DICO_CONNECTEURS)
+        df_marq_brut = detecter_marqueurs(texte_source, DICO_MARQUEURS)
         df_marq = ajuster_negations_global(texte_source, df_marq_brut)
-        df_memoires = detecter_memoires(texte_source, dico_memoires)
+        df_memoires = detecter_memoires(texte_source, DICO_MEMOIRES)
         df_consq_lex = (
-            detecter_consequences_lex(texte_source, dico_consq)
+            detecter_consequences_lex(texte_source, DICO_CONSQS)
             if use_regex_cc
             else pd.DataFrame()
         )
         df_causes_lex = (
-            detecter_causes_lex(texte_source, dico_causes)
+            detecter_causes_lex(texte_source, DICO_CAUSES)
             if use_regex_cc
             else pd.DataFrame()
         )
-        df_tensions = detecter_tensions_semantiques(texte_source, dico_tensions)
+        df_tensions = detecter_tensions_semantiques(texte_source, DICO_TENSIONS)
     else:
         df_conn = pd.DataFrame()
         df_marq = pd.DataFrame()
@@ -631,6 +632,99 @@ def graphviz_if_dot(condition: str, action_true: str, action_false: str = "") ->
     return "\n".join(lignes)
 
 # =========================
+# spaCy : extraction CAUSE → CONSÉQUENCE
+# =========================
+def _locution_match(tok, locutions_norm: set) -> bool:
+    """Teste un match simple sur le token lui-même ou sa sous-chaîne de sous-arbre."""
+    t = tok.lower_
+    if t in locutions_norm:
+        return True
+    surface = " ".join(w.lower_ for w in tok.subtree)
+    return any(loc in surface for loc in locutions_norm)
+
+def extraire_cause_consequence_spacy(texte: str, nlp, causes_lex: List[str], consequences_lex: List[str]) -> pd.DataFrame:
+    """
+    Retourne un DataFrame avec les segments CAUSE/CONSÉQUENCE extraits par analyse dépendancielle.
+    Colonnes : id_phrase, type, cause_span, consequence_span, ancre, methode, phrase
+    """
+    if not nlp:
+        return pd.DataFrame()
+
+    doc = nlp(texte)
+    causes_norm = {c.lower().strip() for c in causes_lex}
+    consq_norm = {c.lower().strip() for c in consequences_lex}
+    enregs = []
+    prev_sent_text = ""
+
+    for pid, sent in enumerate(doc.sents, start=1):
+        # Subordonnées causales (mark ∈ causes)
+        for tok in sent:
+            if tok.dep_.lower() == "mark" and _locution_match(tok, causes_norm):
+                head = tok.head
+                cause_span = doc[head.left_edge.i: head.right_edge.i+1]
+                enregs.append({
+                    "id_phrase": pid,
+                    "type": "CAUSE_SUBORDONNEE",
+                    "cause_span": cause_span.text,
+                    "consequence_span": sent.text,
+                    "ancre": tok.text,
+                    "methode": "mark→advcl",
+                    "phrase": sent.text
+                })
+
+        # Groupes prépositionnels causaux (à cause de, en raison de, du fait de, grâce à…)
+        for tok in sent:
+            if tok.dep_.lower() in {"case","fixed","mark"} and _locution_match(tok, causes_norm):
+                head = tok.head
+                gn = doc[head.left_edge.i: head.right_edge.i+1]
+                enregs.append({
+                    "id_phrase": pid,
+                    "type": "CAUSE_GN",
+                    "cause_span": gn.text,
+                    "consequence_span": sent.text,
+                    "ancre": tok.text,
+                    "methode": "case/fixed→obl",
+                    "phrase": sent.text
+                })
+
+        # Conséquence adverbiale en tête de phrase (donc, alors, ainsi, dès lors…)
+        premiers = [t for t in sent if not t.is_punct][:3]
+        if premiers:
+            t0 = premiers[0]
+            if _locution_match(t0, consq_norm) and t0.pos_ in {"ADV","CCONJ","SCONJ"}:
+                enregs.append({
+                    "id_phrase": pid,
+                    "type": "CONSEQUENCE_ADV",
+                    "cause_span": prev_sent_text,
+                    "consequence_span": sent.text,
+                    "ancre": t0.text,
+                    "methode": "adv/discourse tête de phrase",
+                    "phrase": sent.text
+                })
+
+        # Subordonnées consécutives (de sorte que, si bien que, de façon que…)
+        for tok in sent:
+            if tok.dep_.lower() == "mark" and _locution_match(tok, consq_norm):
+                head = tok.head
+                cons_span = doc[head.left_edge.i: head.right_edge.i+1]
+                enregs.append({
+                    "id_phrase": pid,
+                    "type": "CONSEQUENCE_SUBORDONNEE",
+                    "cause_span": sent.text,
+                    "consequence_span": cons_span.text,
+                    "ancre": tok.text,
+                    "methode": "mark→advcl(consécutif)",
+                    "phrase": sent.text
+                })
+
+        prev_sent_text = sent.text
+
+    df = pd.DataFrame(enregs)
+    if not df.empty:
+        df = df.sort_values(["id_phrase", "type"]).reset_index(drop=True)
+    return df
+
+# =========================
 # Helpers pour tableaux comparatifs (surlignage ⟦ … ⟧)
 # =========================
 def marquer_terme_brut(phrase: str, terme: str) -> str:
@@ -668,17 +762,42 @@ def table_regex_df(df: pd.DataFrame, type_marqueur: str) -> pd.DataFrame:
         })
     return pd.DataFrame(lignes)
 
+def table_spacy_df(df_spacy: pd.DataFrame) -> pd.DataFrame:
+    """
+    Construit un DataFrame pour l’affichage Streamlit côté spaCy :
+    Colonnes : id_phrase, type, ancre, méthode, phrase_marquee, cause_span, consequence_span
+    (l’ancre est entourée de ⟦…⟧ dans la phrase).
+    """
+    if df_spacy is None or df_spacy.empty:
+        return pd.DataFrame(columns=["id_phrase", "type", "ancre", "méthode", "phrase_marquee", "cause_span", "consequence_span"])
+
+    lignes = []
+    for _, row in df_spacy.iterrows():
+        ancre = row.get("ancre", "")
+        phr = row.get("phrase", "")
+        phr_m = marquer_terme_brut(phr, ancre)
+        lignes.append({
+            "id_phrase": row.get("id_phrase", ""),
+            "type": row.get("type", ""),
+            "ancre": ancre,
+            "méthode": row.get("methode", ""),
+            "phrase_marquee": phr_m,
+            "cause_span": row.get("cause_span", ""),
+            "consequence_span": row.get("consequence_span", "")
+        })
+    return pd.DataFrame(lignes)
+
 # =========================
 # Interface Streamlit
 # =========================
 st.set_page_config(
-    page_title="Approche symbolique du langage : connecteurs logiques",
+    page_title="Formalisation logique du langage naturel (connecteurs : Si / Alors / Sinon / Tant que + marqueurs + causes/conséquences",
     page_icon=None,
     layout="wide",
 )
 st.markdown(css_checkboxes_alignment(), unsafe_allow_html=True)
 st.title(
-    "Approche symbolique du langage : connecteurs logiques"
+    "Formalisation logique du langage naturel (connecteurs : Si / Alors / Sinon / Tant que + marqueurs + causes/conséquences"
 )
 st.caption(
     "Vous pouvez récupérer deux fichiers texte (Discours de Politique Générale de Sébastien "
@@ -719,15 +838,6 @@ DICOS_REFERENCE = {
 if "dicos_actifs" not in st.session_state:
     st.session_state["dicos_actifs"] = copy.deepcopy(DICOS_REFERENCE)
 
-if "iramuteq_df" not in st.session_state:
-    st.session_state["iramuteq_df"] = pd.DataFrame(
-        columns=["variable", "modalite", "texte", "balise"]
-    )
-if "iramuteq_fichier" not in st.session_state:
-    st.session_state["iramuteq_fichier"] = ""
-if "dicos_hashes" not in st.session_state:
-    st.session_state["dicos_hashes"] = {}
-
 dicos_actifs = st.session_state["dicos_actifs"]
 DICO_CONDITIONS = dicos_actifs.get("conditions", {})
 DICO_ALTERNATIVES = dicos_actifs.get("alternatives", {})
@@ -744,7 +854,13 @@ ALORS_TERMS = {k for k, v in DICO_CONDITIONS.items() if str(v).upper() == "ALORS
 WHILE_TERMS = {k for k, v in DICO_CONDITIONS.items() if str(v).upper() == "WHILE"}
 ALT_TERMS = set(DICO_ALTERNATIVES.keys())
 
-# Alerte Graphviz
+# Alerte spaCy/Graphviz
+if not SPACY_OK:
+    st.warning(
+        "spaCy FR indisponible (installez par exemple le modèle 'fr_core_news_md'). L’onglet spaCy utilisera uniquement Regex si aucun modèle FR n’est chargé."
+    )
+if SPACY_STATUS:
+    st.caption(" ; ".join(SPACY_STATUS))
 if not GV_OK:
     st.warning("Graphviz non détecté : l’export JPEG des graphes ne sera pas disponible (rendu DOT affiché quand même).")
 
@@ -752,7 +868,12 @@ if not GV_OK:
 with st.sidebar:
     st.header("Méthodes d’analyse")
     use_regex_cc = st.checkbox("Dictionnaire json (règles Regex)", value=True)
-    st.caption("Les analyses sont basées sur des règles symboliques (Regex).")
+    use_spacy_dev_cc = st.checkbox("Dictionnaire NLP (SpaCy) - en cours de dév", value=False)
+    if use_spacy_dev_cc:
+        st.caption("Fonctionnalité spaCy en cours de développement.")
+
+# La méthode spaCy principale est désactivée (case supprimée de l’interface)
+use_spacy_cc = False
 
 # Source du discours
 st.markdown("### Source du discours")
@@ -852,8 +973,11 @@ libelle_discours_2 = (
     tab_lexique,
     tab_annot,
     tab_storytelling,
-    tab_import_iramuteq,
-    tab_corpus_iramuteq,
+    tab_sentiments,
+    tab_camembert,
+    tab_toxicite,
+    tab_zero_shot,
+    tab_feel,
 ) = st.tabs(
     [
         "Analyses",
@@ -866,10 +990,16 @@ libelle_discours_2 = (
         "Lexique",
         "Annot",
         "Storytelling",
-        "Import IRaMuTeQ",
-        "analyse corp ira",
+        "ASentsVader",
+        "AnalysSentCamemBert",
+        "AnalysSentToxic",
+        "zeroclassification",
+        "FEEL",
     ]
 )
+
+# Onglet désactivé : Comparatif règles Regex vs spaCy
+tab_comparatif = None
 
 # Onglet Analyses (listes + texte annoté)
 with tab_detections:
@@ -950,26 +1080,18 @@ with tab_dicos:
         )
         if fichier_import is not None:
             try:
-                contenu_bytes = fichier_import.getvalue()
-                empreinte = hashlib.sha256(contenu_bytes).hexdigest()
-                hash_actuel = st.session_state["dicos_hashes"].get(cle)
-
-                if hash_actuel == empreinte:
-                    st.info("Ce dictionnaire est déjà chargé : aucune mise à jour nécessaire.")
-                else:
-                    dico_charge = parse_uploaded_dictionary(
-                        fichier_import, normalizer=normaliser_espace
-                    )
-                    st.session_state["dicos_actifs"][cle] = dico_charge
-                    st.session_state["dicos_hashes"][cle] = empreinte
-                    st.success(
-                        "Dictionnaire personnalisé chargé : il est maintenant utilisé pour les analyses."
-                    )
-                    # Le déclenchement explicite d'un rerun provoquait des boucles
-                    # infinies sur Streamlit Cloud (l'uploader renvoyant toujours
-                    # un fichier non vide). Le dictionnaire est déjà injecté dans
-                    # st.session_state ; on laisse Streamlit rafraîchir la page
-                    # normalement sans forcer un rerun manuel.
+                dico_charge = parse_uploaded_dictionary(
+                    fichier_import, normalizer=normaliser_espace
+                )
+                st.session_state["dicos_actifs"][cle] = dico_charge
+                st.success(
+                    "Dictionnaire personnalisé chargé : il est maintenant utilisé pour les analyses."
+                )
+                # Le déclenchement explicite d'un rerun provoquait des boucles
+                # infinies sur Streamlit Cloud (l'uploader renvoyant toujours
+                # un fichier non vide). Le dictionnaire est déjà injecté dans
+                # st.session_state ; on laisse Streamlit rafraîchir la page
+                # normalement sans forcer un rerun manuel.
             except Exception as err:
                 st.error(f"Import impossible : {err}")
 
@@ -1078,6 +1200,98 @@ with tab_conditions:
                 with st.expander("Voir la phrase complète"):
                     st.write(sel["phrase"])
                 st.markdown("---")
+
+        st.markdown("### Analyse spaCy (modèle fr_core_news_md)")
+        if not SPACY_OK or NLP is None:
+            st.info(
+                "spaCy FR n'est pas disponible. Installez par exemple "
+                "`fr_core_news_md` pour activer cette analyse."
+            )
+        else:
+            df_conditions_spacy = analyser_conditions_spacy(
+                texte_source,
+                NLP,
+                sorted(COND_TERMS),
+                sorted(ALORS_TERMS),
+                sorted(ALT_TERMS),
+            )
+            if df_conditions_spacy.empty:
+                st.info(
+                    "Aucune structure conditionnelle n'a été identifiée par spaCy."
+                )
+            else:
+                dataframe_safe(
+                    df_conditions_spacy,
+                    use_container_width=True,
+                    hide_index=True,
+                )
+                st.download_button(
+                    "Exporter l'analyse spaCy (CSV)",
+                    data=df_conditions_spacy.to_csv(index=False).encode("utf-8"),
+                    file_name="conditions_spacy.csv",
+                    mime="text/csv",
+                    key="dl_conditions_spacy_csv",
+                )
+
+# Onglet Comparatif Regex / spaCy (désactivé)
+if tab_comparatif is not None:
+    with tab_comparatif:
+        st.subheader("Comparatif des détections Causes/Conséquences : Regex vs spaCy")
+
+        if not texte_source.strip():
+            st.info("Aucun texte fourni.")
+        else:
+            # 1) Regex — CAUSE
+            st.markdown("**Détections Regex — CAUSE**")
+            if not use_regex_cc:
+                st.info("Méthode Regex désactivée (voir barre latérale).")
+            else:
+                if df_causes_lex.empty:
+                    st.info("Aucune CAUSE trouvée par Regex.")
+                else:
+                    df_view_cause = table_regex_df(df_causes_lex, "CAUSE")
+                    dataframe_safe(df_view_cause, use_container_width=True, hide_index=True)
+
+            st.markdown("---")
+
+            # 2) Regex — CONSEQUENCE
+            st.markdown("**Détections Regex — CONSEQUENCE**")
+            if not use_regex_cc:
+                st.info("Méthode Regex désactivée (voir barre latérale).")
+            else:
+                if df_consq_lex.empty:
+                    st.info("Aucune CONSEQUENCE trouvée par Regex.")
+                else:
+                    df_view_consq = table_regex_df(df_consq_lex, "CONSEQUENCE")
+                    dataframe_safe(df_view_consq, use_container_width=True, hide_index=True)
+
+            st.markdown("---")
+
+            # 3) spaCy — CAUSE → CONSÉQUENCE
+            st.markdown("**Détections spaCy — CAUSE → CONSÉQUENCE**")
+            if use_spacy_cc and SPACY_OK and NLP is not None:
+                df_cc_spacy = extraire_cause_consequence_spacy(
+                    texte_source,
+                    NLP,
+                    list(DICO_CAUSES.keys()),
+                    list(DICO_CONSQS.keys())
+                )
+                if df_cc_spacy.empty:
+                    st.info("Aucun lien trouvé par spaCy (selon les ancres fournies).")
+                else:
+                    df_spacy_view = table_spacy_df(df_cc_spacy)
+                    dataframe_safe(df_spacy_view, use_container_width=True, hide_index=True)
+                    st.download_button(
+                        "Exporter CAUSE → CONSÉQUENCE (CSV)",
+                        data=df_spacy_view.to_csv(index=False).encode("utf-8"),
+                        file_name="cause_consequence_spacy.csv",
+                        mime="text/csv",
+                        key="dl_cc_spacy_csv"
+                    )
+            elif use_spacy_cc and not SPACY_OK:
+                st.warning("spaCy FR indisponible (installez un modèle français, par exemple 'fr_core_news_md').")
+            else:
+                st.info("Analyse spaCy désactivée.")
 
 # Onglet Annot (création de dictionnaires à partir de surlignages)
 with tab_annot:
@@ -1202,46 +1416,44 @@ with tab_storytelling:
                         use_container_width=True,
                     )
 
-with tab_import_iramuteq:
-    st.subheader("Importer un corpus IRaMuTeQ (.txt)")
-    st.caption(
-        "Le fichier doit être balisé par des lignes de type '**** *modalite_' qui séparent les segments du corpus."
-    )
-    fichier_iramuteq = st.file_uploader(
-        "Déposer un fichier IRaMuTeQ (.txt)",
-        type=["txt"],
-        accept_multiple_files=False,
-        key="iramuteq_txt",
+with tab_sentiments:
+    render_sentiments_tab(
+        texte_source,
+        texte_source_2,
+        libelle_discours_1,
+        libelle_discours_2,
     )
 
-    if fichier_iramuteq is not None:
-        try:
-            texte_corpus = lire_fichier_txt(fichier_iramuteq)
-            df_modalites = segmenter_corpus_par_modalite(texte_corpus)
-        except Exception as err:
-            st.error(f"Impossible de lire le corpus : {err}")
-        else:
-            st.session_state["iramuteq_df"] = df_modalites
-            st.session_state["iramuteq_fichier"] = fichier_iramuteq.name
-            if df_modalites.empty:
-                st.warning("Aucune modalité détectée dans ce fichier.")
-            else:
-                st.success(
-                    f"Corpus importé : {fichier_iramuteq.name} • {len(df_modalites)} modalités identifiées"
-                )
-                st.dataframe(df_modalites, use_container_width=True)
+with tab_camembert:
+    render_camembert_tab(
+        texte_source,
+        texte_source_2,
+        libelle_discours_1,
+        libelle_discours_2,
+    )
 
-    if st.session_state.get("iramuteq_fichier"):
-        st.info(
-            f"Dernier corpus importé : {st.session_state['iramuteq_fichier']}"
-        )
+with tab_toxicite:
+    render_toxicite_tab(
+        texte_source,
+        texte_source_2,
+        libelle_discours_1,
+        libelle_discours_2,
+    )
 
-with tab_corpus_iramuteq:
-    render_corpus_iramuteq_tab(
-        st.session_state.get("iramuteq_df", pd.DataFrame()),
-        DICTIONNAIRES_DIR,
-        use_regex_cc,
-        preparer_detections,
+with tab_zero_shot:
+    render_zero_shot_tab(
+        texte_source,
+        texte_source_2,
+        libelle_discours_1,
+        libelle_discours_2,
+    )
+
+with tab_feel:
+    render_feel_tab(
+        texte_source,
+        texte_source_2,
+        libelle_discours_1,
+        libelle_discours_2,
     )
 
 with tab_stats_norm:
