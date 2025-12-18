@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+import zipfile
+from io import BytesIO
 from typing import Dict, Iterable, List, Optional
 
 import pandas as pd
@@ -98,6 +100,40 @@ def segmenter_corpus_par_modalite(texte_corpus: str) -> pd.DataFrame:
     _ajouter_segments(segments, balises_courantes, contenu_courant)
 
     return pd.DataFrame(segments, columns=["variable", "modalite", "texte", "balise"])
+
+
+def lire_fichier_iramuteq(uploaded_file) -> str:
+    """Lit un fichier texte ou une archive .iramuteq et retourne son contenu.
+
+    La fonction tente d'abord d'extraire un fichier .txt depuis une archive
+    IRaMuTeQ (fichier ZIP). En cas d'échec ou si le fichier n'est pas une
+    archive, elle essaie plusieurs encodages texte courants.
+    """
+
+    if uploaded_file is None:
+        return ""
+
+    donnees = uploaded_file.getvalue()
+
+    try:
+        with zipfile.ZipFile(BytesIO(donnees)) as archive:
+            noms_txt = [nom for nom in archive.namelist() if nom.lower().endswith(".txt")]
+            if noms_txt:
+                with archive.open(noms_txt[0]) as fichier_txt:
+                    return fichier_txt.read().decode("utf-8", errors="ignore")
+    except zipfile.BadZipFile:
+        pass
+    except Exception:
+        # On ignore silencieusement l'erreur pour tester ensuite les encodages texte
+        pass
+
+    for enc in ["utf-8", "utf-8-sig", "latin-1", "cp1252"]:
+        try:
+            return donnees.decode(enc)
+        except Exception:
+            continue
+
+    return donnees.decode("utf-8", errors="ignore")
 
 
 def filtrer_modalites(
