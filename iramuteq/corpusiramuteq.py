@@ -152,6 +152,21 @@ def lire_fichier_iramuteq(uploaded_file) -> str:
     return donnees.decode("utf-8", errors="ignore")
 
 
+def charger_corpus_iramuteq(uploaded_file) -> pd.DataFrame:
+    """Lit un fichier IRaMuTeQ et retourne son découpage en DataFrame.
+
+    Cette fonction mutualise la lecture (texte ou archive .iramuteq) et la
+    segmentation en variables/modalités pour éviter de dupliquer la logique dans
+    l'interface Streamlit.
+    """
+
+    texte = lire_fichier_iramuteq(uploaded_file)
+    if not texte.strip():
+        return pd.DataFrame(columns=["variable", "modalite", "texte", "balise"])
+
+    return segmenter_corpus_par_modalite(texte)
+
+
 def filtrer_modalites(
     df_modalites: pd.DataFrame, modalites: Iterable[str], variable: str | None = None
 ) -> pd.DataFrame:
