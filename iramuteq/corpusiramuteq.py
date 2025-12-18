@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import zipfile
 from io import BytesIO
+from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
 import pandas as pd
@@ -113,7 +114,22 @@ def lire_fichier_iramuteq(uploaded_file) -> str:
     if uploaded_file is None:
         return ""
 
-    donnees = uploaded_file.getvalue()
+    donnees: bytes
+
+    if isinstance(uploaded_file, (str, Path)):
+        try:
+            donnees = Path(uploaded_file).read_bytes()
+        except Exception:
+            return ""
+    elif hasattr(uploaded_file, "getvalue"):
+        donnees = uploaded_file.getvalue()
+    elif isinstance(uploaded_file, (bytes, bytearray)):
+        donnees = bytes(uploaded_file)
+    else:
+        try:
+            donnees = uploaded_file.read()
+        except Exception:
+            return ""
 
     try:
         with zipfile.ZipFile(BytesIO(donnees)) as archive:
