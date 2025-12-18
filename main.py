@@ -36,6 +36,19 @@ def lire_fichier_txt(uploaded_file) -> str:
     return donnees.decode("utf-8", errors="ignore")
 
 
+def initialiser_session() -> None:
+    """Prépare les clés de session nécessaires pour partager le corpus entre les pages."""
+
+    if "corpus_df" not in st.session_state:
+        st.session_state.corpus_df = pd.DataFrame(
+            columns=["variable", "modalite", "texte", "balise"]
+        )
+    if "corpus_texte" not in st.session_state:
+        st.session_state.corpus_texte = ""
+    if "corpus_nom" not in st.session_state:
+        st.session_state.corpus_nom = ""
+
+
 def charger_corpus(uploaded_file) -> Tuple[str, pd.DataFrame]:
     """Retourne le texte du corpus et son découpage en variables/modalités."""
 
@@ -73,30 +86,23 @@ def page_iramuteq() -> None:
         layout="wide",
     )
 
-    st.title("Analyse IRaMuTeQ des connecteurs logiques")
-    st.markdown(
-        "Cette interface s'appuie exclusivement sur les modules du dossier "
-        "**iramuteq** pour importer un corpus, l'explorer par variable/modalité "
-        "et visualiser les connecteurs logiques définis dans le dictionnaire "
-        "`connecteursiramuteq.json`."
+    initialiser_session()
+
+    st.sidebar.header("Navigation")
+    page_courante = st.sidebar.radio(
+        "Aller à",
+        (
+            "Importer le corpus",
+            "Analyser les connecteurs",
+        ),
     )
 
-    st.markdown(
-        """### Comment démarrer ?
-        1. Déposez un fichier texte IRaMuTeQ (.txt) contenant vos balises `****` et vos variables/modalités.
-        2. Consultez le découpage automatique du corpus (variable, modalité, texte).
-        3. Explorez les statistiques et les textes annotés avec le dictionnaire de connecteurs IRaMuTeQ.
-        """
-    )
-
-    fichier_corpus = st.file_uploader(
+    fichier_corpus = st.sidebar.file_uploader(
         "Déposer un corpus IRaMuTeQ (.txt)",
         type=["txt"],
         accept_multiple_files=False,
+        help="Le fichier doit contenir les balises **** et les variables/modalités attendues par IRaMuTeQ.",
     )
-
-    texte_corpus = ""
-    df_modalites = pd.DataFrame()
 
     if fichier_corpus is not None:
         try:
@@ -105,27 +111,55 @@ def page_iramuteq() -> None:
             st.error(f"Impossible de lire le corpus : {err}")
             return
 
-        if df_modalites.empty:
-            st.warning("Aucune variable ou modalité détectée dans le fichier fourni.")
-        else:
+        st.session_state.corpus_df = df_modalites
+        st.session_state.corpus_texte = texte_corpus
+        st.session_state.corpus_nom = fichier_corpus.name
+
+    df_modalites = st.session_state.corpus_df
+
+    if page_courante == "Importer le corpus":
+        st.title("Importer et préparer le corpus IRaMuTeQ")
+        st.markdown(
+            "Cette interface utilise les modules **iramuteq** pour importer un corpus, "
+            "segmenter les variables/modalités et préparer l'analyse des connecteurs logiques."
+        )
+
+        st.markdown(
+            """### Comment démarrer ?
+            1. Déposez un fichier texte IRaMuTeQ (.txt) contenant vos balises `****` et vos variables/modalités.
+            2. Vérifiez le découpage automatique du corpus (variable, modalité, texte).
+            3. Passez à la page « Analyser les connecteurs » pour explorer les statistiques.
+            """
+        )
+
+        if fichier_corpus is None and df_modalites.empty:
+            st.info("Aucun corpus chargé pour le moment.")
+
+        if df_modalites is not None and not df_modalites.empty:
             st.success(
-                f"Corpus chargé : {fichier_corpus.name} • {len(texte_corpus)} caractères"
+                f"Corpus chargé : {st.session_state.corpus_nom or 'fichier inconnu'} • {len(st.session_state.corpus_texte)} caractères"
             )
             afficher_resume_corpus(df_modalites)
             with st.expander("Aperçu du corpus segmenté", expanded=False):
                 st.dataframe(df_modalites, use_container_width=True)
 
-    if df_modalites is not None and not df_modalites.empty:
-        st.divider()
+    if page_courante == "Analyser les connecteurs":
+        st.title("Analyse IRaMuTeQ des connecteurs logiques")
+        st.markdown(
+            "Les statistiques et textes annotés s'appuient sur le dictionnaire « connecteursiramuteq.json »."
+        )
+
+        if df_modalites is None or df_modalites.empty:
+            st.info(
+                "Importez d'abord un corpus via la page « Importer le corpus » pour lancer l'analyse."
+            )
+            return
+
         render_corpus_iramuteq_tab(
             df_modalites,
             dictionnaires_dir=DICTIONNAIRES_DIR,
             use_regex_cc=True,
             preparer_detections=None,
-        )
-    else:
-        st.info(
-            "Importez un corpus IRaMuTeQ pour accéder aux statistiques et aux textes annotés."
         )
 
 
