@@ -49,6 +49,17 @@ def initialiser_session() -> None:
         st.session_state.corpus_nom = ""
 
 
+def vider_cache_application() -> None:
+    """Vide le cache Streamlit au démarrage pour garantir un état initial propre."""
+
+    if st.session_state.get("cache_deja_purge"):
+        return
+
+    st.cache_data.clear()
+    st.cache_resource.clear()
+    st.session_state.cache_deja_purge = True
+
+
 def charger_corpus(uploaded_file) -> Tuple[str, pd.DataFrame]:
     """Retourne le texte du corpus et son découpage en variables/modalités."""
 
@@ -86,6 +97,7 @@ def page_iramuteq() -> None:
         layout="wide",
     )
 
+    vider_cache_application()
     initialiser_session()
 
     st.sidebar.header("Navigation")
