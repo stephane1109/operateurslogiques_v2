@@ -6,4 +6,3 @@ wordcloud>=1.9
 # NumPy/BLAS stables sur Streamlit Cloud
 numpy==1.26.4
 scikit-learn>=1.5
-prince>=0.13
