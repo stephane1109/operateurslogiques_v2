@@ -40,7 +40,7 @@ from import_exp import dictionnaire_to_bytes, parse_uploaded_dictionary
 
 from stats import render_stats_tab
 from stats_norm import render_stats_norm_tab
-from conditions_spacy import analyser_conditions_spacy
+# from conditions_spacy import analyser_conditions_spacy
 from argToulmin import render_toulmin_tab
 from lexique import render_lexique_tab
 from storytelling.pynarrative import generer_storytelling_mermaid
