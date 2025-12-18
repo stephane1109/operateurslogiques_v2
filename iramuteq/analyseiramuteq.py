@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
@@ -19,9 +20,43 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from analyses import construire_regex_depuis_liste
 from iramuteq.corpusiramuteq import filtrer_modalites
-from text_utils import normaliser_espace, segmenter_en_phrases
+
+
+def normaliser_espace(texte: str) -> str:
+    """Nettoie les espaces multiples et normalise les retours à la ligne."""
+
+    texte_str = str(texte or "")
+    texte_str = re.sub(r"\s+", " ", texte_str)
+    return texte_str.strip()
+
+
+def segmenter_en_phrases(texte: str) -> List[str]:
+    """Découpe un texte en phrases simples en s'appuyant sur la ponctuation."""
+
+    if not texte:
+        return []
+
+    morceaux = re.split(r"(?<=[\.!\?])\s+", texte)
+    return [m for m in morceaux if m]
+
+
+def construire_regex_depuis_liste(expressions: Iterable[str]) -> List[tuple[str, re.Pattern]]:
+    """Construit des expressions régulières insensibles à la casse pour chaque entrée."""
+
+    motifs: List[tuple[str, re.Pattern]] = []
+    for expr in expressions:
+        cle = str(expr or "").strip()
+        if not cle:
+            continue
+
+        pattern = re.escape(cle).replace(r"\ ", r"\s+")
+        regex = re.compile(rf"\b{pattern}\b", flags=re.IGNORECASE)
+        motifs.append((cle.lower(), regex))
+
+    # Les plus longues d'abord pour éviter les correspondances partielles précédant les longues
+    motifs.sort(key=lambda item: len(item[0]), reverse=True)
+    return motifs
 
 
 def _charger_connecteurs_iramuteq(dictionnaires_dir: Path) -> Dict[str, str]:
@@ -41,7 +76,7 @@ def _charger_connecteurs_iramuteq(dictionnaires_dir: Path) -> Dict[str, str]:
         st.error(f"Impossible de charger le dictionnaire IRaMuTeQ : {exc}")
         return {}
 
-    connecteurs = {str(k).strip(): str(v).strip() for k, v in donnees.items() if k}
+    connecteurs = {str(k).strip().lower(): str(v).strip() for k, v in donnees.items() if k}
     return connecteurs
 
 
@@ -58,7 +93,8 @@ def _detecter_connecteurs(
     entre chaque segment pour l'affichage annoté.
     """
 
-    sources = [str(t) for t in (textes_bruts or []) if t is not None and str(t).strip()]
+    sources_iterable = list(textes_bruts) if textes_bruts is not None else []
+    sources = [str(t) for t in sources_iterable if t is not None and str(t).strip()]
     if not sources and texte:
         sources = [texte]
 
@@ -70,7 +106,8 @@ def _detecter_connecteurs(
             [],
         )
 
-    motifs = construire_regex_depuis_liste(list(dico_conn.keys()))
+    dico_conn_norm = {str(k).lower(): str(v) for k, v in dico_conn.items() if k}
+    motifs = construire_regex_depuis_liste(list(dico_conn_norm.keys()))
 
     occurrences: List[dict] = []
     phrases: List[str] = []
@@ -91,7 +128,7 @@ def _detecter_connecteurs(
                             "id_phrase": id_phrase,
                             "phrase": ph_norm,
                             "connecteur": cle_norm,
-                            "code": dico_conn.get(cle_norm, ""),
+                            "code": dico_conn_norm.get(cle_norm, ""),
                             "position": m.start(),
                             "longueur": m.end() - m.start(),
                         }
