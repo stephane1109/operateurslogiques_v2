@@ -8,6 +8,7 @@ segmenter les variables/modalités, puis d'analyser les connecteurs logiques
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Tuple
 
@@ -32,6 +33,8 @@ def initialiser_session() -> None:
         st.session_state.corpus_texte = ""
     if "corpus_nom" not in st.session_state:
         st.session_state.corpus_nom = ""
+    if "corpus_hash" not in st.session_state:
+        st.session_state.corpus_hash = ""
 
 
 def vider_cache_application() -> None:
@@ -93,15 +96,20 @@ def page_iramuteq() -> None:
     )
 
     if fichier_corpus is not None:
-        try:
-            texte_corpus, df_modalites = charger_corpus(fichier_corpus)
-        except Exception as err:
-            st.error(f"Impossible de lire le corpus : {err}")
-            return
+        contenu_fichier = fichier_corpus.getvalue()
+        hash_corpus = hashlib.sha256(contenu_fichier).hexdigest()
 
-        st.session_state.corpus_df = df_modalites
-        st.session_state.corpus_texte = texte_corpus
-        st.session_state.corpus_nom = fichier_corpus.name
+        if hash_corpus != st.session_state.get("corpus_hash"):
+            try:
+                texte_corpus, df_modalites = charger_corpus(fichier_corpus)
+            except Exception as err:
+                st.error(f"Impossible de lire le corpus : {err}")
+                return
+
+            st.session_state.corpus_df = df_modalites
+            st.session_state.corpus_texte = texte_corpus
+            st.session_state.corpus_nom = fichier_corpus.name
+            st.session_state.corpus_hash = hash_corpus
 
     df_modalites = st.session_state.corpus_df
 
