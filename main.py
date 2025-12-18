@@ -199,5 +199,15 @@ def page_iramuteq() -> None:
         )
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Point d'entrée de l'application Streamlit.
+
+    La page unique se limite à afficher le titre, les menus latéraux d'import
+    et les onglets d'analyse dédiés à IRaMuTeQ.
+    """
+
     page_iramuteq()
+
+
+if __name__ == "__main__":
+    main()
