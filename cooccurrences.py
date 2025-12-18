@@ -1,8 +1,3 @@
-diff --git a/cooccurrences.py b/cooccurrences.py
-index 42c0b424a229f9885ae9d93f52ae2235809d4f48..efa67429de1fe794fc9458896d02979c6f564cd2 100644
---- a/cooccurrences.py
-+++ b/cooccurrences.py
-@@ -1,272 +1,165 @@
  """Analyse de co-occurrences à partir du texte fourni.
  
  Ce module propose un rendu Streamlit avec tableau, graphique Altair et nuage de mots
