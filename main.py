@@ -16,7 +16,7 @@ import pandas as pd
 import streamlit as st
 
 from iramuteq.analyseiramuteq import render_corpus_iramuteq_tab
-from iramuteq.corpusiramuteq import lire_fichier_iramuteq, segmenter_corpus_par_modalite
+from iramuteq.corpusiramuteq import charger_corpus_iramuteq, lire_fichier_iramuteq
 
 BASE_DIR = Path(__file__).resolve().parent
 DICTIONNAIRES_DIR = BASE_DIR / "dictionnaires"
@@ -49,17 +49,6 @@ def vider_cache_application() -> None:
     st.session_state.cache_deja_purge = True
 
 
-def charger_corpus(uploaded_file) -> Tuple[str, pd.DataFrame]:
-    """Retourne le texte du corpus et son découpage en variables/modalités."""
-
-    texte = lire_fichier_iramuteq(uploaded_file)
-    if not texte.strip():
-        return "", pd.DataFrame(columns=["variable", "modalite", "texte", "balise"])
-
-    df_modalites = segmenter_corpus_par_modalite(texte)
-    return texte, df_modalites
-
-
 def afficher_resume_corpus(df_modalites: pd.DataFrame) -> None:
     """Affiche un résumé synthétique du corpus importé."""
 
@@ -81,7 +70,8 @@ def _charger_et_memoriser_corpus(source, nom_fichier: str) -> None:
     """Lit un corpus, stocke les résultats et son hash dans la session."""
 
     try:
-        texte_corpus, df_modalites = charger_corpus(source)
+        texte_corpus = lire_fichier_iramuteq(source)
+        df_modalites = charger_corpus_iramuteq(source)
     except Exception as err:
         st.error(f"Impossible de lire le corpus : {err}")
         return
